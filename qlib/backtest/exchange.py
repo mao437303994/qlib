@@ -151,7 +151,7 @@ class Exchange:
             if C.region in [REG_CN, REG_TW, REG_CN_FUTURE]:
                 self.logger.warning(f"limit_threshold not set. The stocks hit the limit may be bought/sold")
         elif self.limit_type == self.LT_FLT and abs(cast(float, limit_threshold)) > 0.1:
-            if C.region in [REG_CN, REG_TW, REG_CN]:
+            if C.region in [REG_CN, REG_TW, REG_CN_FUTURE]:
                 self.logger.warning(f"limit_threshold may not be set to a reasonable value")
 
         if isinstance(deal_price, str):
