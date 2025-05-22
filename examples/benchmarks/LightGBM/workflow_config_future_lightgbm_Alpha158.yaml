@@ -48,8 +48,8 @@ task:
         module_path: qlib.data.dataset
         kwargs:
             handler:
-                class: Alpha158
-                module_path: qlib.contrib.data.handler
+                class: Alpha158WithOI
+                module_path: data_handler
                 kwargs: *data_handler_config
             segments:
                 train: [2013-01-01,  2020-12-31]
@@ -66,7 +66,7 @@ task:
           kwargs: 
             ana_long_short: False
             ann_scaler: 252
-        - class: PortAnaRecord
-          module_path: qlib.workflow.record_temp
-          kwargs: 
-            config: *port_analysis_config
+        # - class: PortAnaRecord
+        #   module_path: qlib.workflow.record_temp
+        #   kwargs: 
+        #     config: *port_analysis_config
