@@ -120,6 +120,9 @@ def futures_jq_hist_em(symbol: str) -> pd.DataFrame:
     )
 
 
+# python scripts/dump_bin.py dump_all --max_workers 1 --csv_path  E:/qh/data --qlib_dir ~/.qlib/qlib_data/cn_future --include_fields open,close,high,low,volume,position,month,day --date_field_name date --symbol_field_name symbol
+
+
 if __name__ == "__main__":
 
     # futures_exchange_em = futures_exchange_em()
@@ -140,7 +143,7 @@ if __name__ == "__main__":
     #         data.to_csv(filename, index=False)
 
     df1 = pd.read_csv(
-        "c:\\Users\\admin\\.qlib\\qlib_data\\cn_future\\instruments\\all.txt",
+        "~/.qlib/qlib_data/cn_future/instruments/all.txt",
         sep="\t",
         header=None,
         names=["code", "start_date", "end_date"],
@@ -150,7 +153,14 @@ if __name__ == "__main__":
     start_times = []
     end_times = []
 
-    df = pd.read_csv("futures_emind_cf_em.csv")
+    dir = os.path.dirname(__file__)
+    df = pd.read_csv(
+        os.path.join(dir, "futures_emind_cf_em.txt"),
+        sep="\t",
+        header=None,
+        names=["code"],
+    )
+
     for index, row in df.iterrows():
         code = row["code"].upper()
         _row = df1[df1["code"] == code]
@@ -168,8 +178,23 @@ if __name__ == "__main__":
     )
 
     t.to_csv(
-        "c:\\Users\\admin\\.qlib\\qlib_data\\cn_future\\instruments\\emindfi.txt",
+        "~/.qlib/qlib_data/cn_future/instruments/emindfi.txt",
         index=False,
         header=False,
         sep="\t",
     )
+
+    # data_dir = "./data"
+    # files = os.listdir(data_dir)
+
+    # for file in files:
+    #     file_path = os.path.join(data_dir, file)
+    #     print(file_path)
+    #     if os.path.isfile(file_path):
+    #         df = pd.read_csv(file_path)
+    #         df["date"] = pd.to_datetime(df["date"])
+    #         df["month"] = df["date"].dt.month
+    #         df["day"] = df["date"].dt.day
+    #         df.to_csv(file_path, index=False)
+
+    pass
