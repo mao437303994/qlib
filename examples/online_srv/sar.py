@@ -1,8 +1,9 @@
 from qlib.data.base import ExpressionOps, Feature
+from qlib.data.ops import Rolling
 import pandas as pd
 
 
-class SAR(ExpressionOps):
+class SAR(Rolling):
 
     def __init__(self, period, step, max_step):
         self.period = period
@@ -12,14 +13,10 @@ class SAR(ExpressionOps):
         self.high = Feature("high")
         self.low = Feature("low")
 
+        super().__init__(self.high, self.period, "sar")
+
     def __str__(self):
         return f"SAR({self.period}, {self.step}, {self.max_step})"
-
-    def get_extended_window_size(self):
-        return self.high.get_extended_window_size()
-
-    def get_longest_back_rolling(self):
-        return self.high.get_longest_back_rolling()
 
     def _load_internal(self, instrument, start_index, end_index, freq):
         h = self.high.load(instrument, start_index, end_index, freq)
@@ -37,7 +34,7 @@ class SAR(ExpressionOps):
         sar_values = self._parabolic_sar(
             high_prices, low_prices, period=self.period, step=self.step, max_step=self.max_step)
 
-        return pd.Series([None if sar == 0 else sar for sar in sar_values], index=h.index)
+        return pd.Series(sar_values.values, index=h.index)
 
     def _parabolic_sar(self, high_prices: pd.Series, low_prices: pd.Series, is_up: bool = True, period: int = 4, step: int = 2, max_step: int = 20):
         """
@@ -63,17 +60,17 @@ class SAR(ExpressionOps):
 
         # 初始化输出列表
         acceleration_factors = [0] * len(high_prices)
-        sar_values = [0] * len(high_prices)
+        sar_values = [None] * len(high_prices)
 
         # 确定初始SAR值
         if is_up:
-            sar_values[period] = min(low_prices[:period-1])
+            sar_values[period-1] = min(low_prices[:period-1])
 
         elif not is_up:
-            sar_values[period] = max(high_prices[:period-1])
+            sar_values[period-1] = max(high_prices[:period-1])
 
         # 计算后续周期的SAR值
-        for i in range(period + 1, len(high_prices)):
+        for i in range(period, len(high_prices)):
 
             # 更新加速因子
             acceleration_factors[i] = acceleration_factors[i-1] + step_factor
