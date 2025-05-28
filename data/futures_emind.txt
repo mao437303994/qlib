@@ -4,9 +4,7 @@ hcfi
 ssfi
 SFFI
 SMFI
-wrfi
 cufi
-bcfi
 alfi
 aofi
 znfi
@@ -39,7 +37,5 @@ brfi
 nrfi
 lgfi
 spfi
-fbfi
-bbfi
 PFFI
 jfi

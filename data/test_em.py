@@ -126,84 +126,72 @@ def futures_jq_hist_em(symbol: str) -> pd.DataFrame:
 if __name__ == "__main__":
 
     ## 下载指数日频数据
-    dir = os.path.dirname(__file__)
-    _futures_jq_em = futures_jq_em()
-
-    for index, row in _futures_jq_em.iterrows():
-        filename = os.path.join(dir, f"data/{row['dm']}.csv")
-        if not os.path.exists(filename):
-            symbol = f"{row['sc']}.{row['dm']}"
-            data = futures_jq_hist_em(symbol)
-            date = pd.to_datetime(data["date"])
-            temp = pd.DataFrame(
-                {
-                    "symbol": data["symbol"],
-                    "date": date,
-                    "open": data["open"].astype(float),
-                    "close": data["close"].astype(float),
-                    "high": data["high"].astype(float),
-                    "low": data["low"].astype(float),
-                    "vol": data["volume"].astype(float),
-                    "oi": data["position"].astype(float),
-                    "month": date.dt.month,
-                    "day": date.dt.day,
-                }
-            )
-            temp.to_csv(filename, index=False)
-
-    # df1 = pd.read_csv(
-    #     "~/.qlib/qlib_data/cn_future/instruments/all.txt",
-    #     sep="\t",
-    #     header=None,
-    #     names=["code", "start_date", "end_date"],
-    # )
-
-    # codes = []
-    # start_times = []
-    # end_times = []
-
     # dir = os.path.dirname(__file__)
-    # df = pd.read_csv(
-    #     os.path.join(dir, "futures_emind_cf_em.txt"),
-    #     sep="\t",
-    #     header=None,
-    #     names=["code"],
-    # )
+    # _futures_jq_em = futures_jq_em()
 
-    # for index, row in df.iterrows():
-    #     code = row["code"].upper()
-    #     _row = df1[df1["code"] == code]
+    # for index, row in _futures_jq_em.iterrows():
+    #     filename = os.path.join(dir, f"data/{row['dm']}.csv")
+    #     if not os.path.exists(filename):
+    #         symbol = f"{row['sc']}.{row['dm']}"
+    #         data = futures_jq_hist_em(symbol)
+    #         date = pd.to_datetime(data["date"])
+    #         temp = pd.DataFrame(
+    #             {
+    #                 "symbol": data["symbol"],
+    #                 "date": date,
+    #                 "open": data["open"].astype(float),
+    #                 "close": data["close"].astype(float),
+    #                 "high": data["high"].astype(float),
+    #                 "low": data["low"].astype(float),
+    #                 "vol": data["volume"].astype(float),
+    #                 "oi": data["position"].astype(float),
+    #                 "month": date.dt.month,
+    #                 "day": date.dt.day,
+    #             }
+    #         )
+    #         temp.to_csv(filename, index=False)
 
-    #     codes.append(_row["code"].values[0])
-    #     start_times.append(_row["start_date"].values[0])
-    #     end_times.append(_row["end_date"].values[0])
+    ### 处理emind集合
+    df1 = pd.read_csv(
+        "~/.qlib/qlib_data/cn_future/instruments/all.txt",
+        sep="\t",
+        header=None,
+        names=["code", "start_date", "end_date"],
+    )
 
-    # t = pd.DataFrame(
-    #     {
-    #         "code": codes,
-    #         "start_date": start_times,
-    #         "end_date": end_times,
-    #     }
-    # )
+    codes = []
+    start_times = []
+    end_times = []
 
-    # t.to_csv(
-    #     "~/.qlib/qlib_data/cn_future/instruments/emindfi.txt",
-    #     index=False,
-    #     header=False,
-    #     sep="\t",
-    # )
+    dir = os.path.dirname(__file__)
+    df = pd.read_csv(
+        os.path.join(dir, "futures_emind.txt"),
+        sep="\t",
+        header=None,
+        names=["code"],
+    )
 
-    # data_dir = "./data"
-    # files = os.listdir(data_dir)
+    for index, row in df.iterrows():
+        code = row["code"].upper()
+        _row = df1[df1["code"] == code]
 
-    # for file in files:
-    #     file_path = os.path.join(data_dir, file)
-    #     print(file_path)
-    #     if os.path.isfile(file_path):
-    #         df = pd.read_csv(file_path)
-    #         df["date"] = pd.to_datetime(df["date"])
-    #         df["month"] = df["date"].dt.month
-    #         df["day"] = df["date"].dt.day
-    #         df.to_csv(file_path, index=False)
+        codes.append(_row["code"].values[0])
+        start_times.append(_row["start_date"].values[0])
+        end_times.append(_row["end_date"].values[0])
+
+    t = pd.DataFrame(
+        {
+            "code": codes,
+            "start_date": start_times,
+            "end_date": end_times,
+        }
+    )
+
+    t.to_csv(
+        "~/.qlib/qlib_data/cn_future/instruments/emindfi.txt",
+        index=False,
+        header=False,
+        sep="\t",
+    )
 
     pass
