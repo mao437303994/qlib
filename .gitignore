@@ -52,3 +52,5 @@ tags
 .aider*
 
 !data/**/*.csv
+
+.venv
