@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 scfi,2018-03-26,436.6,428.6,445.4,424.0,21168.0,1779.0,3,26
 scfi,2018-03-27,428.4,422.7,430.2,412.1,20570.0,2222.0,3,27
 scfi,2018-03-28,426.9,409.2,427.1,405.5,34433.0,3625.0,3,28

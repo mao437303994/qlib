@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 rbfi,2009-03-27,3551.0,3562.0,3663.0,3514.0,180114.0,23472.0,3,27
 rbfi,2009-03-30,3551.0,3546.0,3581.0,3528.0,72944.0,24864.0,3,30
 rbfi,2009-03-31,3540.0,3551.0,3568.0,3533.0,35501.0,22959.0,3,31

@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 abpfi,2013-11-08,107.15,105.4,108.08,105.17,175356.0,32863.0,11,8
 abpfi,2013-11-11,105.4,104.55,105.47,104.25,83402.0,35271.0,11,11
 abpfi,2013-11-12,104.93,105.58,106.01,104.8,57120.0,33920.0,11,12

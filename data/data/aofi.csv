@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 aofi,2023-06-19,2713.0,2708.0,2754.0,2677.0,100744.0,14720.0,6,19
 aofi,2023-06-20,2701.0,2715.0,2730.0,2700.0,66774.0,14244.0,6,20
 aofi,2023-06-21,2711.0,2719.0,2723.0,2702.0,56690.0,11694.0,6,21

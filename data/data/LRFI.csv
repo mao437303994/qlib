@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 LRFI,2014-07-08,2760.0,2811.0,2815.0,2760.0,13296.0,5042.0,7,8
 LRFI,2014-07-09,2819.0,2802.0,2823.0,2797.0,4679.0,5684.0,7,9
 LRFI,2014-07-10,2803.0,2802.0,2809.0,2793.0,1141.0,5555.0,7,10

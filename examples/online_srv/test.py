@@ -11,10 +11,10 @@ from sar import SAR
 class Alpha(Alpha158):
     def get_feature_config(self):
         fields, names = super().get_feature_config()
-        fields += ["SAR(4,2,20)"]
-        names += ["SAR"]
+        #fields += ["SAR(4,2,20)"]
+        #names += ["SAR"]
 
-        fields += ["$position", "$position /Ref($position, 1) - 1"]
+        fields += ["$oi", "$oi/Ref($oi,1)-1"]
         names += ["OI", "OI_CHG"]
 
         fields += ["$month", "$day"]
@@ -53,39 +53,39 @@ if __name__ == "__main__":
     # print(df)
 
     # 查看某只股票的原始行情数据
-    df = D.features(
-        ["FGFI"],
-        [
-            "$close",
-            "Ref($close, -2)",
-            #"Ref($close, -1)",
-            #"Ref($close, -2)/Ref($close, -1) - 1",
-        ],
-        start_time="2025-04-24",
-        end_time="2025-05-18",
-    )
+    # df = D.features(
+    #     ["FGFI"],
+    #     [
+    #         "$close",
+    #         "Ref($close, -2)",
+    #         #"Ref($close, -1)",
+    #         #"Ref($close, -2)/Ref($close, -1) - 1",
+    #     ],
+    #     start_time="2025-04-24",
+    #     end_time="2025-05-18",
+    # )
 
     handler = Alpha(
         instruments="all",
-        start_time="2013-01-01",
+        start_time="2015-01-01",
         end_time="2025-05-22",
-        learn_processors=[
-            DropnaLabel(
-                fields_group="label",
-            ),
-            ZScoreNorm(
-                fit_start_time="2013-01-01",
-                fit_end_time="2022-12-31",
-                fields_group="feature",
-            ),
-        ],
+        # learn_processors=[
+        #     DropnaLabel(
+        #         fields_group="label",
+        #     ),
+        #     ZScoreNorm(
+        #         fit_start_time="2013-01-01",
+        #         fit_end_time="2022-12-31",
+        #         fields_group="feature",
+        #     ),
+        # ],
         # fit_start_time="2018-09-10",
         # fit_end_time="2018-10-31",
     )
 
     df = handler.fetch(col_set=["feature", "label"])
 
-    df.to_csv("c.csv")
+    #df.to_csv("c.csv")
 
     config = {
         "model": {

@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 wrfi,2009-03-27,3398.0,3399.0,3499.0,3361.0,53436.0,6537.0,3,27
 wrfi,2009-03-30,3383.0,3417.0,3437.0,3382.0,23229.0,7162.0,3,30
 wrfi,2009-03-31,3415.0,3421.0,3430.0,3402.0,7674.0,7014.0,3,31

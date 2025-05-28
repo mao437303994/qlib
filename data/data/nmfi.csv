@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 nmfi,2008-01-09,103.43,100.22,103.44,99.61,60734.0,10905.0,1,9
 nmfi,2008-01-10,99.86,96.52,100.0,95.94,47532.0,14675.0,1,10
 nmfi,2008-01-11,97.75,97.75,98.34,96.7,45441.0,16207.0,1,11

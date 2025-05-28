@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 bbfi,2013-12-06,126.04,125.83,128.97,122.98,43813.0,2070.0,12,6
 bbfi,2013-12-09,125.99,131.54,131.54,124.75,31392.0,6325.0,12,9
 bbfi,2013-12-10,132.98,132.95,135.64,131.69,171334.0,13694.0,12,10

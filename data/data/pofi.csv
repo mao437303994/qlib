@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 pofi,2006-01-09,104.67,100.49,105.55,99.95,69319.0,23537.0,1,9
 pofi,2006-01-10,99.96,100.3,100.71,99.41,41396.0,23640.0,1,10
 pofi,2006-01-11,99.94,100.1,100.35,99.66,35393.0,23677.0,1,11

@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 rufi,1999-05-04,8127.0,8278.0,8282.0,8111.0,1634.0,3082.0,5,4
 rufi,1999-05-05,8280.0,8240.0,8321.0,8197.0,771.0,3251.0,5,5
 rufi,1999-05-06,8243.0,8395.0,8430.0,8238.0,880.0,3305.0,5,6

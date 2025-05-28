@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 SRFI,2006-01-06,4655.0,4737.0,4807.0,4619.0,14261.0,3658.0,1,6
 SRFI,2006-01-09,4734.0,4710.0,4750.0,4698.0,3726.0,3532.0,1,9
 SRFI,2006-01-10,4676.0,4737.0,4743.0,4640.0,4629.0,3866.0,1,10

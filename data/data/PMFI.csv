@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 PMFI,2012-01-17,2219.0,2219.0,2219.0,2219.0,1.0,1.0,1,17
 PMFI,2012-01-20,2218.0,2204.0,2218.0,2204.0,3.0,3.0,1,20
 PMFI,2012-01-30,2220.0,2219.0,2220.0,2200.0,4.0,6.0,1,30

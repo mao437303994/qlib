@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 feifi,2009-03-27,99.71,100.03,102.87,98.67,180114.0,23472.0,3,27
 feifi,2009-03-30,99.71,99.57,100.57,99.08,72944.0,24864.0,3,30
 feifi,2009-03-31,99.4,99.71,100.2,99.21,35501.0,22959.0,3,31

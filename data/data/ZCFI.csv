@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 ZCFI,2015-05-18,440.0,437.6,440.2,437.6,64.0,38.0,5,18
 ZCFI,2015-05-19,436.0,437.0,437.6,436.0,6.0,42.0,5,19
 ZCFI,2015-05-20,436.8,435.8,437.0,434.8,8.0,42.0,5,20

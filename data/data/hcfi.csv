@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 hcfi,2014-03-21,3256.0,3325.0,3337.0,3234.0,104667.0,28762.0,3,21
 hcfi,2014-03-24,3316.0,3331.0,3331.0,3269.0,44773.0,26236.0,3,24
 hcfi,2014-03-25,3324.0,3380.0,3398.0,3318.0,61019.0,32795.0,3,25

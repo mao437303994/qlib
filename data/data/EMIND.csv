@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 EMIND,1998-02-04,59.82,59.88,60.23,59.63,7647.0,48519.0,2,4
 EMIND,1998-02-05,60.16,59.91,60.27,59.79,4201.0,49174.0,2,5
 EMIND,1998-02-06,59.55,59.06,59.79,58.99,10660.0,50303.0,2,6

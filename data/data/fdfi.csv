@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 fdfi,2000-07-17,107.66,102.7,107.68,101.1,582.0,360.0,7,17
 fdfi,2000-07-18,104.09,104.7,108.46,103.75,651.0,583.0,7,18
 fdfi,2000-07-19,99.32,103.93,99.32,98.37,78.0,598.0,7,19

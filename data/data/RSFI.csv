@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 RSFI,2012-12-28,5319.0,5270.0,5320.0,5156.0,64115.0,4606.0,12,28
 RSFI,2012-12-31,5275.0,5273.0,5386.0,5233.0,72969.0,4509.0,12,31
 RSFI,2013-01-04,5273.0,5346.0,5357.0,5256.0,42064.0,6758.0,1,4

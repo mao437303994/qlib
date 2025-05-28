@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 aufi,2008-01-09,230.96,223.8,230.99,222.44,60734.0,10905.0,1,9
 aufi,2008-01-10,223.0,215.54,223.3,214.23,47532.0,14675.0,1,10
 aufi,2008-01-11,218.28,218.27,219.58,215.94,45441.0,16207.0,1,11

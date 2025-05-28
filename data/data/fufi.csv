@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 fufi,2004-08-25,2152.0,2170.0,2209.0,2130.0,45764.0,7189.0,8,25
 fufi,2004-08-26,2173.0,2157.0,2176.0,2145.0,35312.0,10150.0,8,26
 fufi,2004-08-27,2148.0,2139.0,2155.0,2131.0,31631.0,10540.0,8,27

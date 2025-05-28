@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 ifi,2013-10-18,976.7,976.1,984.4,959.9,169350.0,39328.0,10,18
 ifi,2013-10-21,974.3,966.9,975.5,959.1,52013.0,41068.0,10,21
 ifi,2013-10-22,960.9,946.3,963.8,946.1,49406.0,44764.0,10,22

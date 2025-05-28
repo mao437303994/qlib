@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 poifi,2000-05-08,121.3,120.89,121.71,120.09,98290.0,195277.0,5,8
 poifi,2000-05-09,120.83,121.09,121.13,120.59,21547.0,198523.0,5,9
 poifi,2000-05-10,121.2,120.97,121.42,120.84,35042.0,199485.0,5,10

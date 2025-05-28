@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 nrfi,2019-08-12,9805.0,9841.0,10196.0,9747.0,48351.0,11347.0,8,12
 nrfi,2019-08-13,9806.0,9876.0,9962.0,9804.0,10159.0,10585.0,8,13
 nrfi,2019-08-14,9864.0,10014.0,10233.0,9809.0,19555.0,13298.0,8,14

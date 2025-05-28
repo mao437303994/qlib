@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 jmfi,2013-03-22,1280.6,1267.4,1304.5,1257.4,424461.0,48693.0,3,22
 jmfi,2013-03-25,1276.4,1258.9,1286.9,1251.9,362691.0,71436.0,3,25
 jmfi,2013-03-26,1255.8,1272.9,1276.9,1249.9,418420.0,72465.0,3,26

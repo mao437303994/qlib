@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 ecfi,2023-08-18,774.9,921.2,933.1,774.9,369097.0,16091.0,8,18
 ecfi,2023-08-21,931.9,928.6,960.2,907.3,292845.0,19595.0,8,21
 ecfi,2023-08-22,914.4,935.7,989.6,909.3,384338.0,22983.0,8,22

@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 frfi,2014-08-08,101.46,100.04,102.49,99.39,136755.0,29133.0,8,8
 frfi,2014-08-11,99.46,100.05,101.0,99.21,96427.0,31083.0,8,11
 frfi,2014-08-12,99.69,100.59,101.59,99.52,164259.0,40820.0,8,12

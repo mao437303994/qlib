@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 fbfi,2013-12-06,74.8,72.1,75.0,71.8,51274.0,5395.0,12,6
 fbfi,2013-12-09,71.5,74.2,76.0,71.4,191172.0,13717.0,12,9
 fbfi,2013-12-10,74.0,72.6,74.8,72.3,214776.0,18901.0,12,10

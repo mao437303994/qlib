@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 clfi,2011-04-15,102.35,100.12,102.41,99.13,29040.0,3347.0,4,15
 clfi,2011-04-18,99.47,106.03,106.34,99.47,66818.0,9970.0,4,18
 clfi,2011-04-19,105.76,104.02,106.16,103.31,102634.0,11869.0,4,19

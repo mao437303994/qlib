@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 OIFI,2012-09-19,10400.0,10420.0,10420.0,10380.0,3.0,1.0,9,19
 OIFI,2012-09-20,10430.0,10430.0,10430.0,10430.0,1.0,1.0,9,20
 OIFI,2012-09-26,10018.0,10794.0,10794.0,10012.0,4.0,1.0,9,26

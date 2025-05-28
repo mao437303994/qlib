@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 cdifi,2004-08-25,98.55,99.37,101.15,97.54,45764.0,7189.0,8,25
 cdifi,2004-08-26,99.49,98.77,99.66,98.23,35312.0,10150.0,8,26
 cdifi,2004-08-27,98.36,97.92,98.66,97.57,31631.0,10540.0,8,27

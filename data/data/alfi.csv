@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 alfi,1998-02-04,14078.0,14132.0,14132.0,14078.0,265.0,2266.0,2,4
 alfi,1998-02-05,14059.0,14106.0,14149.0,14040.0,359.0,2288.0,2,5
 alfi,1998-02-06,14060.0,14060.0,14069.0,14047.0,307.0,2313.0,2,6

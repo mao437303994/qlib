@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 rrfi,2019-08-16,3597.0,3677.0,3727.0,3597.0,138423.0,16513.0,8,16
 rrfi,2019-08-19,3683.0,3665.0,3687.0,3657.0,26943.0,15225.0,8,19
 rrfi,2019-08-20,3670.0,3653.0,3670.0,3647.0,11112.0,14506.0,8,20

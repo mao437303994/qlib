@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 SHFI,2023-09-15,2948.0,2853.0,3056.0,2789.0,417192.0,32116.0,9,15
 SHFI,2023-09-18,2852.0,2900.0,2917.0,2830.0,287837.0,33857.0,9,18
 SHFI,2023-09-19,2908.0,3034.0,3080.0,2895.0,524260.0,48301.0,9,19

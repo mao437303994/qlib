@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 agfi,2012-05-10,6182.0,6149.0,6194.0,6093.0,174582.0,24724.0,5,10
 agfi,2012-05-11,6111.0,6010.0,6119.0,6007.0,127233.0,36750.0,5,11
 agfi,2012-05-14,6048.0,5981.0,6054.0,5965.0,122468.0,39478.0,5,14

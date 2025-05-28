@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 SAFI,2019-12-06,1580.0,1564.0,1586.0,1549.0,167922.0,22522.0,12,6
 SAFI,2019-12-09,1567.0,1574.0,1591.0,1560.0,86217.0,18898.0,12,9
 SAFI,2019-12-10,1575.0,1636.0,1636.0,1573.0,114228.0,38257.0,12,10

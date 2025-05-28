@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 bmfi,2009-03-27,99.77,100.03,102.89,98.72,233550.0,30009.0,3,27
 bmfi,2009-03-30,99.68,99.78,100.7,99.18,96173.0,32026.0,3,30
 bmfi,2009-03-31,99.65,99.92,100.36,99.41,43175.0,29973.0,3,31

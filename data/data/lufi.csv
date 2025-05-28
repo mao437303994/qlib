@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 lufi,2020-06-22,2620.0,2606.0,2773.0,2590.0,133985.0,25910.0,6,22
 lufi,2020-06-23,2619.0,2653.0,2682.0,2609.0,145750.0,34325.0,6,23
 lufi,2020-06-24,2664.0,2607.0,2676.0,2593.0,79691.0,35160.0,6,24

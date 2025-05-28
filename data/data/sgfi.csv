@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 sgfi,2005-02-21,92.62,91.47,92.87,91.25,36406.0,37924.0,2,21
 sgfi,2005-03-29,98.59,97.77,98.88,97.45,47606.0,47280.0,3,29
 sgfi,2005-04-22,99.55,99.54,99.86,99.07,46249.0,50441.0,4,22

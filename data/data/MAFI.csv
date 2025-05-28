@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 MAFI,2014-06-17,2868.0,2854.0,2897.0,2826.0,1053.0,601.0,6,17
 MAFI,2014-06-18,2858.0,2896.0,2902.0,2833.0,1059.0,1088.0,6,18
 MAFI,2014-06-19,2901.0,2901.0,2929.0,2890.0,1766.0,1478.0,6,19

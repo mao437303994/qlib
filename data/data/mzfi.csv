@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 mzfi,2004-09-22,103.62,100.54,103.97,99.86,163750.0,66269.0,9,22
 mzfi,2004-09-23,99.98,99.68,100.28,98.89,85113.0,70389.0,9,23
 mzfi,2004-09-24,99.23,99.9,100.52,98.96,72485.0,73955.0,9,24

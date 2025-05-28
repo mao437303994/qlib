@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 TAFI,2006-12-18,8532.0,8832.0,9019.0,8516.0,24698.0,3891.0,12,18
 TAFI,2006-12-19,8834.0,8867.0,8919.0,8777.0,24953.0,4570.0,12,19
 TAFI,2006-12-20,8906.0,8918.0,8930.0,8870.0,13090.0,5348.0,12,20

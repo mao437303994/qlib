@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 pgfi,2020-03-30,2394.0,2382.0,2440.0,2335.0,96381.0,13137.0,3,30
 pgfi,2020-03-31,2436.0,2558.0,2559.0,2420.0,99069.0,23023.0,3,31
 pgfi,2020-04-01,2554.0,2634.0,2650.0,2544.0,209138.0,26373.0,4,1

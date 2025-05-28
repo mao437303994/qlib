@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 WHFI,2012-07-24,2580.0,2595.0,2599.0,2580.0,42.0,34.0,7,24
 WHFI,2012-07-27,2595.0,2600.0,2602.0,2595.0,4.0,37.0,7,27
 WHFI,2012-07-30,2630.0,2612.0,2666.0,2606.0,14.0,47.0,7,30

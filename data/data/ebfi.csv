@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 ebfi,2019-09-26,8042.0,8045.0,8162.0,7974.0,101806.0,16791.0,9,26
 ebfi,2019-09-27,8011.0,7919.0,8051.0,7886.0,29143.0,14571.0,9,27
 ebfi,2019-09-30,7896.0,7941.0,7964.0,7889.0,9385.0,13151.0,9,30

@@ -1,4 +1,4 @@
-symbol,date,open,close,high,low,vol,oi,month,day
+symbol,date,open,close,high,low,volume,oi,month,day
 mfi,2000-07-17,2049.0,1954.0,2049.0,1924.0,582.0,360.0,7,17
 mfi,2000-07-18,1981.0,1992.0,2064.0,1974.0,651.0,583.0,7,18
 mfi,2000-07-19,1890.0,1978.0,1890.0,1872.0,78.0,598.0,7,19
