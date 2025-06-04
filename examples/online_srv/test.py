@@ -3,7 +3,14 @@ from qlib.config import DISK_DATASET_CACHE, DISK_EXPRESSION_CACHE
 from qlib.contrib.data.handler import Alpha158
 import qlib
 from qlib.data import D
-from qlib.data.dataset.processor import DropnaLabel, Processor, ZScoreNorm, CSZScoreNorm
+from qlib.data.dataset.processor import (
+    DropnaLabel,
+    ZScoreNorm,
+    CSZScoreNorm,
+    DropCol,
+    ProcessInf,
+    RobustZScoreNorm,
+)
 from qlib.model.trainer import task_train
 from qlib.utils.mod import init_instance_by_config
 from qlib.workflow import R
@@ -26,11 +33,16 @@ if __name__ == "__main__":
         instruments="active",
         start_time="2013-01-01",
         end_time="2025-05-22",
+        infer_processors=[
+            DropCol(col_list=["VWAP0"]),
+        ],
         learn_processors=[
+            DropCol(col_list=["VWAP0"]),
             DropnaLabel(fields_group="label"),
-            CSZScoreNorm(fields_group="label"),
             DropnaLabel(fields_group="feature"),
-            ZScoreNorm(
+            ProcessInf(),
+            CSZScoreNorm(fields_group="label"),
+            RobustZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2013-01-01",
                 fit_end_time="2022-12-31",
@@ -85,9 +97,9 @@ if __name__ == "__main__":
                 #     },
                 # },
                 "segments": {
-                    "train": ("2013-01-01", "2020-12-31"),
-                    "valid": ("2021-01-01", "2022-12-31"),
-                    "test": ("2023-01-01", "2025-05-22"),
+                    "train": ("2013-01-01", "2019-12-31"),
+                    "valid": ("2020-01-01", "2021-12-31"),
+                    "test": ("2022-01-01", "2025-05-22"),
                 },
             },
         },
@@ -99,3 +111,8 @@ if __name__ == "__main__":
     }
 
     task_train(config, experiment_name="future_alpha_test")
+
+    exp = R.get_exp(experiment_name="future_alpha_test")
+    recorder = exp.get_recorder()
+    score = recorder.load_object("pred.pkl")
+    print(score)

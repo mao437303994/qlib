@@ -1,13 +1,9 @@
-from qlib.contrib.data.handler import Alpha158
+from qlib.contrib.data.handler import Alpha158, Alpha360
 
 
 class Alpha(Alpha158):
     def get_feature_config(self):
         fields, names = super().get_feature_config()
-        index = names.index("VWAP0")
-        if index >= 0:
-            fields.pop(index)
-            names.pop(index)
 
         # # 1. 动量与收益率因子
         # fields += [
@@ -52,4 +48,4 @@ class Alpha(Alpha158):
         return fields, names
 
     def get_label_config(self):
-        return ["Ref($close, -1)/$close - 1"], ["LABEL0"]
+        return ["(Ref($close, -1)/$close - 1) * 100"], ["LABEL0"]
