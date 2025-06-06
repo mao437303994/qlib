@@ -42,7 +42,7 @@ class Alpha(Alpha158):
         # names += ["VOL_CHG5", "OI_CHG5", "VOL_CHG1", "OI_CHG1"]
 
         # 5. 周期因子
-        fields += ["$month", "$day"]
+        fields += ["$month/100", "$day/100"]
         names += ["MONTH", "DAY"]
 
         return fields, names
