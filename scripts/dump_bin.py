@@ -502,4 +502,13 @@ class DumpDataUpdate(DumpDataBase):
 
 
 if __name__ == "__main__":
-    fire.Fire({"dump_all": DumpDataAll, "dump_fix": DumpDataFix, "dump_update": DumpDataUpdate})
+    #fire.Fire({"dump_all": DumpDataAll, "dump_fix": DumpDataFix, "dump_update": DumpDataUpdate})
+
+    DumpDataAll(
+        csv_path="data/data",
+        qlib_dir="~/.qlib/qlib_data/cn_future",
+        max_workers=1,
+        include_fields="open,close,high,low,volume,oi,timestamp",
+        date_field_name="date",
+        symbol_field_name="symbol",
+    ).dump()

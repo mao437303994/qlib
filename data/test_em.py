@@ -145,53 +145,68 @@ if __name__ == "__main__":
     #                 "low": data["low"].astype(float),
     #                 "volume": data["volume"].astype(float),
     #                 "oi": data["position"].astype(float),
-    #                 "month": date.dt.month.astype(int),
-    #                 "day": date.dt.day.astype(int),
+    #                 "timestamp": date.astype("int64") // 10**9,
     #             }
     #         )
     #         temp.to_csv(filename, index=False)
 
     ### 处理emind集合
-    df1 = pd.read_csv(
-        "~/.qlib/qlib_data/cn_future/instruments/all.txt",
-        sep="\t",
-        header=None,
-        names=["code", "start_date", "end_date"],
-    )
+    # df1 = pd.read_csv(
+    #     "~/.qlib/qlib_data/cn_future/instruments/all.txt",
+    #     sep="\t",
+    #     header=None,
+    #     names=["code", "start_date", "end_date"],
+    # )
 
-    codes = []
-    start_times = []
-    end_times = []
+    # codes = []
+    # start_times = []
+    # end_times = []
 
-    dir = os.path.dirname(__file__)
-    df = pd.read_csv(
-        os.path.join(dir, "futures_emind.txt"),
-        sep="\t",
-        header=None,
-        names=["code"],
-    )
+    # dir = os.path.dirname(__file__)
+    # df = pd.read_csv(
+    #     os.path.join(dir, "futures_emind.txt"),
+    #     sep="\t",
+    #     header=None,
+    #     names=["code"],
+    # )
 
-    for index, row in df.iterrows():
-        code = row["code"].upper()
-        _row = df1[df1["code"] == code]
+    # for index, row in df.iterrows():
+    #     code = row["code"].upper()
+    #     _row = df1[df1["code"] == code]
 
-        codes.append(_row["code"].values[0])
-        start_times.append(_row["start_date"].values[0])
-        end_times.append(_row["end_date"].values[0])
+    #     codes.append(_row["code"].values[0])
+    #     start_times.append(_row["start_date"].values[0])
+    #     end_times.append(_row["end_date"].values[0])
 
-    t = pd.DataFrame(
-        {
-            "code": codes,
-            "start_date": start_times,
-            "end_date": end_times,
-        }
-    )
+    # t = pd.DataFrame(
+    #     {
+    #         "code": codes,
+    #         "start_date": start_times,
+    #         "end_date": end_times,
+    #     }
+    # )
 
-    t.to_csv(
-        "~/.qlib/qlib_data/cn_future/instruments/emindfi.txt",
-        index=False,
-        header=False,
-        sep="\t",
-    )
+    # t.to_csv(
+    #     "~/.qlib/qlib_data/cn_future/instruments/emindfi.txt",
+    #     index=False,
+    #     header=False,
+    #     sep="\t",
+    # )
 
+    fs = os.listdir("data/data")
+    for f in fs:
+        if f.endswith(".csv"):
+            filename = os.path.join("data/data", f)
+            df = pd.read_csv(filename)
+            t = pd.DataFrame()
+            t["symbol"] = df["symbol"]
+            t["date"] = pd.to_datetime(df["date"])
+            t["open"] = df["open"].astype(float)
+            t["close"] = df["close"].astype(float)
+            t["high"] = df["high"].astype(float)
+            t["low"] = df["low"].astype(float)
+            t["volume"] = df["volume"].astype(float)
+            t["oi"] = df["oi"].astype(float)
+            t["timestamp"] = pd.to_datetime(df["date"]).astype("int64") // 10**9
+            t.to_csv(filename, index=False)
     pass
