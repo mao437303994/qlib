@@ -19,8 +19,7 @@ from qlib.data.dataset.processor import (
 from qlib.model.trainer import task_train
 from qlib.utils.mod import init_instance_by_config
 from qlib.workflow import R
-import pandas as pd
-
+import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -41,7 +40,6 @@ from lightgbm import LGBMRegressor
 
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 plt.rcParams["axes.unicode_minus"] = False
-
 
 if __name__ == "__main__":
     qlib.init(
@@ -149,7 +147,7 @@ if __name__ == "__main__":
         ]
     )
 
-    # a = DropCol(col_list=["VWAP0"])
+    a = DropCol(col_list=["VWAP0"])
 
     handler = Alpha(
         # instruments=["FGFI"],
@@ -179,10 +177,10 @@ if __name__ == "__main__":
         ],
     )
 
-    df = handler.fetch(col_set=["feature", "label"], data_key="learn")
-    # # df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
+    # df = handler.fetch(col_set=["feature", "label"], data_key="learn")
+    # df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
 
-    # # 生成分析报告
+    # 生成分析报告
     # report = sv.analyze(df["label"])
 
     # # 保存为HTML文件
@@ -292,10 +290,17 @@ if __name__ == "__main__":
         # print("RMSE:", rmse)
         # print("相对误差:", rmse / np.std(y_valid))
 
-        return 1 - auc
+        #return 1 - auc, f1
+        #return 1 - acc  # Minimize the negative accuracy
+        return f1 # Maximize the F1-score
 
-    # study = optuna.create_study(direction="minimize")
-    # study.optimize(objective, n_trials=50)
+    study = optuna.create_study(
+        study_name="my_study",
+        #directions=["minimize", "maximize"],
+        direction="maximize",
+    )
+
+    study.optimize(objective, n_trials=50)
 
     # a = []
     # b = {}
@@ -310,6 +315,16 @@ if __name__ == "__main__":
 
     # print("Best params:", a)
     # print("Best params:", b)
+
+    # df = study.trials_dataframe()
+    # df.to_csv("optuna_trials.csv", index=False)
+
+    # fig = optuna.visualization.plot_optimization_history(study)
+    # fig.write_html("plot_optimization_history.html")
+    # fig = optuna.visualization.plot_param_importances(study)
+    # fig.write_html("plot_param_importances.html")
+    # fig = optuna.visualization.plot_parallel_coordinate(study)
+    # fig.write_html("plot_parallel_coordinate.html")
 
     config = {
         "dataset": dataset,
@@ -345,4 +360,7 @@ if __name__ == "__main__":
         ],
     }
 
-    task_train(config, experiment_name="future_alpha_test")
+    # task_train(config, experiment_name="future_alpha_test")
+    # exp = R.get_exp(experiment_name="future_alpha_test")
+    # r =exp.get_recorder()
+    # r.load_object("pre")

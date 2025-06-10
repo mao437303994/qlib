@@ -4,8 +4,8 @@ from qlib.contrib.data.handler import Alpha158, Alpha360
 class Alpha(Alpha158):
     def get_feature_config(self):
         fields, names = super().get_feature_config()
-        # fields, names = ([], [])
-        # 添加自定义特征
+        #fields, names = ([], [])
+        # # 添加自定义特征
 
         fields += [
             "($close/Ref($close,1))-1",  # 昨日涨跌幅
@@ -46,12 +46,12 @@ class Alpha(Alpha158):
         ]
 
         fields += [
-            "Month($timestamp)",  # 月份（1-12）
-            "Day($timestamp)",  # 日（1-31）
-            "Sin(2*3.14*Month($timestamp)/12)",  # 月份正弦周期
-            "Cos(2*3.14*Month($timestamp)/12)",  # 月份余弦周期
-            "Sin(2*3.14*Day($timestamp)/31)",  # 日正弦周期
-            "Cos(2*3.14*Day($timestamp)/31)",  # 日余弦周期
+            "Month($timestamp)",
+            "Day($timestamp)",
+            "Sin(2*PI*Month($timestamp)/12)",
+            "Cos(2*PI*Month($timestamp)/12)", 
+            "Sin(2*PI*Day($timestamp)/31)",
+            "Cos(2*PI*Day($timestamp)/31)",
         ]
         names += [
             "MONTH",
@@ -61,8 +61,15 @@ class Alpha(Alpha158):
             "DAY_SIN",
             "DAY_COS",
         ]
-
+        
+        #print(fields)
         return fields, names
 
     def get_label_config(self):
         return ["If((Ref($close,-1)/$close-1)>0,1,0)"], ["LABEL0"]
+
+
+if __name__ == "__main__":
+    import pandas as pd
+    a = pd.Series([True,False]).astype(int)
+    print(a)
