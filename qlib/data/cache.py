@@ -539,7 +539,7 @@ class DiskExpressionCache(ExpressionCache):
             field = remove_fields_space(field)
             # cache unavailable, generate the cache
             _instrument_dir.mkdir(parents=True, exist_ok=True)
-            if not isinstance(eval(parse_field(field)), Feature):
+            if not isinstance(eval(parse_field(field, None, {"PI":np.pi})), Feature):
                 # When the expression is not a raw feature
                 # generate expression cache if the feature is not a Feature
                 # instance

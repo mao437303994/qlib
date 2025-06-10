@@ -394,7 +394,7 @@ class ExpressionProvider(abc.ABC):
             if field in self.expression_instance_cache:
                 expression = self.expression_instance_cache[field]
             else:
-                expression = eval(parse_field(field))
+                expression = eval(parse_field(field, None, {"PI":np.pi}))
                 self.expression_instance_cache[field] = expression
         except NameError as e:
             get_module_logger("data").exception(
