@@ -1,8 +1,12 @@
 from alpha import Alpha
+from dataset import DatasetS
+from ops import Month, Day, SAR, Sin, Cos
 from qlib.config import DISK_DATASET_CACHE, DISK_EXPRESSION_CACHE
 from qlib.contrib.data.handler import Alpha158
 import qlib
 from qlib.data import D
+from qlib.data.dataset.handler import DataHandlerLP
+from qlib.data.dataset.loader import QlibDataLoader
 from qlib.data.dataset.processor import (
     DropnaLabel,
     ZScoreNorm,
@@ -15,7 +19,6 @@ from qlib.data.dataset.processor import (
 from qlib.model.trainer import task_train
 from qlib.utils.mod import init_instance_by_config
 from qlib.workflow import R
-from sar import SAR
 import pandas as pd
 
 import pandas as pd
@@ -25,126 +28,19 @@ import seaborn as sns
 from scipy import stats
 import os
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
+import sweetviz as sv
+from ydata_profiling import ProfileReport
+import optuna
+from sklearn.metrics import mean_squared_error, root_mean_squared_error
+from qlib.contrib.model.gbdt import LGBModel
+from qlib.data.dataset import DatasetH
+import lightgbm as lgb
+from lightgbm import LGBMRegressor
 
 
-def plot_distribution(data, title="分布图", xlabel="值", bins=50, save_path=None):
-    """
-    画出数据的直方图和核密度估计图
-    :param data: 一维数据（pandas Series 或 numpy array）
-    :param title: 图标题
-    :param xlabel: x轴标签
-    :param bins: 直方图分箱数
-    :param save_path: 如果不为None，则保存图片到该路径
-    """
-    plt.figure(figsize=(10, 6))
-    # 画直方图和KDE
-    sns.histplot(data, bins=bins, kde=True, color="skyblue", edgecolor="black")
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel("频数/密度")
-    plt.grid(True, linestyle="--", alpha=0.5)
-    if save_path:
-        plt.savefig(save_path, dpi=200, bbox_inches="tight")
-    plt.show()
-    plt.close()
-
-
-def compare_distributions(train_label, predictions):
-    """比较训练集标签和预测结果的分布"""
-    # 创建图形
-    plt.figure(figsize=(15, 10))
-
-    # 确保数据对齐
-    common_index = train_label.index.intersection(predictions.index)
-    aligned_label = train_label.loc[common_index]
-    aligned_predictions = predictions.loc[common_index]
-
-    print(f"\n数据对齐信息:")
-    print(f"训练集标签数量: {len(train_label)}")
-    print(f"预测结果数量: {len(predictions)}")
-    print(f"对齐后数量: {len(common_index)}")
-
-    # 1. 绘制分布对比图
-    plt.subplot(211)
-    sns.kdeplot(
-        data=aligned_label.values.flatten(),
-        label="Training Labels",
-        color="blue",
-        alpha=0.6,
-    )
-    sns.kdeplot(
-        data=aligned_predictions.values.flatten(),
-        label="Predictions",
-        color="red",
-        alpha=0.6,
-    )
-    plt.title("Distribution Comparison")
-    plt.xlabel("Value")
-    plt.ylabel("Density")
-    plt.legend()
-
-    # 2. 绘制箱型图对比
-    plt.subplot(212)
-    plot_data = pd.DataFrame(
-        {
-            "Training Labels": aligned_label.values.flatten(),
-            "Predictions": aligned_predictions.values.flatten(),
-        }
-    )
-    sns.boxplot(data=plot_data)
-    plt.title("Boxplot Comparison")
-
-    plt.tight_layout()
-    plt.savefig("distribution_comparison.png", dpi=300, bbox_inches="tight")
-    plt.close()
-
-    # 计算统计信息
-    stats_df = plot_data.describe()
-    print("\n=== 分布统计对比 ===")
-    print(stats_df)
-
-    return stats_df
-
-
-def compare_feature_distributions(
-    raw_df,
-    processed_df,
-    feature_cols=None,
-    sample_num=16,
-    save_path="feature_distribution_comparison.png",
-):
-    """
-    对比原始特征和处理后特征的分布
-    :param raw_df: 原始特征DataFrame，格式df1["feature"]
-    :param processed_df: 处理后特征DataFrame，格式df["feature"]
-    :param feature_cols: 要对比的特征名列表，默认随机选sample_num个
-    :param sample_num: 随机展示的特征数量
-    :param save_path: 图片保存路径
-    """
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import numpy as np
-
-    if feature_cols is None:
-        feature_cols = list(raw_df.columns)
-        if len(feature_cols) > sample_num:
-            feature_cols = np.random.choice(feature_cols, sample_num, replace=False)
-
-    n = len(feature_cols)
-    ncols = 4
-    nrows = int(np.ceil(n / ncols))
-    plt.figure(figsize=(ncols * 4, nrows * 3))
-
-    for i, col in enumerate(feature_cols):
-        plt.subplot(nrows, ncols, i + 1)
-        sns.kdeplot(raw_df[col].dropna(), label="原始", color="blue", alpha=0.5)
-        sns.kdeplot(processed_df[col].dropna(), label="处理后", color="red", alpha=0.5)
-        plt.title(col)
-        plt.legend()
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=200, bbox_inches="tight")
-    plt.close()
-    print(f"特征分布对比图已保存到: {save_path}")
+plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
+plt.rcParams["axes.unicode_minus"] = False
 
 
 if __name__ == "__main__":
@@ -154,25 +50,119 @@ if __name__ == "__main__":
         kernels=1,
         expression_cache=DISK_EXPRESSION_CACHE,
         dataset_cache=DISK_DATASET_CACHE,
-        **{"custom_ops": [SAR]},
+        **{"custom_ops": [SAR, Month, Day, Sin, Cos]},
+    )
+
+    a = FilterCol(
+        col_list=[
+            "KMID2",
+            "KUP",
+            "KUP2",
+            "KLOW2",
+            "OPEN0",
+            "ROC5",
+            "ROC10",
+            "ROC20",
+            "ROC30",
+            "ROC60",
+            "MA5",
+            "MA20",
+            "MA30",
+            "MA60",
+            "STD5",
+            "STD10",
+            "STD60",
+            "BETA10",
+            "BETA60",
+            "RSQR20",
+            "RSQR60",
+            "RESI10",
+            "RESI20",
+            "RESI30",
+            "RESI60",
+            "MAX10",
+            "MAX20",
+            "MAX30",
+            "MAX60",
+            "MIN5",
+            "QTLU30",
+            "QTLD10",
+            "QTLD20",
+            "QTLD30",
+            "RANK20",
+            "RANK30",
+            "RSV5",
+            "IMAX10",
+            "IMAX60",
+            "IMIN10",
+            "IMIN60",
+            "IMXD5",
+            "CORR5",
+            "CORR20",
+            "CORR30",
+            "CORD5",
+            "CORD10",
+            "CORD30",
+            "CNTP5",
+            "CNTP10",
+            "CNTP30",
+            "CNTP60",
+            "CNTN10",
+            "CNTN20",
+            "CNTD10",
+            "CNTD30",
+            "CNTD60",
+            "SUMP10",
+            "SUMN5",
+            "SUMN20",
+            "SUMD60",
+            "VMA5",
+            "VMA20",
+            "VMA60",
+            "VSTD5",
+            "VSTD20",
+            "VSTD30",
+            "WVMA5",
+            "WVMA10",
+            "WVMA20",
+            "WVMA60",
+            "VSUMP10",
+            "VSUMP20",
+            "VSUMP30",
+            "VSUMP60",
+            "VSUMN20",
+            "VSUMN30",
+            "VSUMD5",
+            "VSUMD10",
+            "VSUMD20",
+            "VSUMD60",
+            "RET1",
+            "INTRADAY_RET",
+            "BIAS5",
+            "MIN_BIAS20",
+            "VOL_CHG1",
+            "MONTH",
+            "DAY",
+            "MONTH_SIN",
+            "DAY_SIN",
+            "DAY_COS",
+        ]
     )
 
     # a = DropCol(col_list=["VWAP0"])
-    a = FilterCol(col_list=["MA5", "MA10", "MA20", "MA30", "MA60"])
 
     handler = Alpha(
         # instruments=["FGFI"],
+        drop_raw=True,
         instruments="active",
-        start_time="2013-01-01",
+        start_time="2006-01-01",
         end_time="2025-05-22",
         infer_processors=[
             a,
-            # DropnaLabel(fields_group="label"),
-            # DropnaLabel(fields_group="feature"),
             RobustZScoreNorm(
                 fields_group="feature",
-                fit_start_time="2013-01-01",
-                fit_end_time="2021-12-31",
+                fit_start_time="2006-01-01",
+                fit_end_time="2021-06-29",
                 clip_outlier=True,
             ),
         ],
@@ -182,85 +172,177 @@ if __name__ == "__main__":
             DropnaLabel(fields_group="feature"),
             RobustZScoreNorm(
                 fields_group="feature",
-                fit_start_time="2013-01-01",
-                fit_end_time="2021-12-31",
-                clip_outlier=False,
+                fit_start_time="2006-01-01",
+                fit_end_time="2021-06-29",
+                clip_outlier=True,
             ),
-            CSZScoreNorm(fields_group="label", method="robust"),
         ],
     )
 
     df = handler.fetch(col_set=["feature", "label"], data_key="learn")
-    df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
+    # # df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
 
-    df  # 处理后的特征
-    df1  # 原始特征
+    # # 生成分析报告
+    # report = sv.analyze(df["label"])
 
-    compare_feature_distributions(
-        df1["feature"],
-        df["feature"],
-        feature_cols=["MA5", "MA10", "MA20", "MA30", "MA60"],
-    )
+    # # 保存为HTML文件
+    # report.show_html("sweetviz_report_1.html")
+
+    # profile = ProfileReport(df["feature"], title="特征分析报告", explorative=True)
+    # # 保存为HTML文件
+    # profile.to_file("profile_report.html")
+
+    # profile = ProfileReport(df["label"], title="标签分析报告", explorative=True)
+    # # 保存为HTML文件
+    # profile.to_file("label_profile_report.html")
 
     # df.to_csv("feature.csv")
     # df["feature"].describe().to_csv("feature_describe.csv")
     # df["label"].describe().to_csv("label_describe.csv")
     # df.corr().to_csv("corr.csv")
 
-    # config = {
-    #     "model": {
-    #         "class": "LGBModel",
-    #         "module_path": "qlib.contrib.model.gbdt",
-    #         "kwargs": {
-    #             "objective": "regression_l2",
-    #             "learning_rate": 0.005,  # 降低学习率以获得更稳定的训练过程
-    #             "n_estimators": 2000,  # 增加树的数量，给模型更多学习机会
-    #             "max_depth": 8,  # 适当增加深度，允许学习更复杂的特征
-    #             "num_leaves": 50,  # 增加叶子节点，提高模型容量
-    #             "feature_fraction": 0.9,  # 增加特征采样比例
-    #             "bagging_fraction": 0.9,  # 增加样本采样比例
-    #             "bagging_freq": 10,  # 调整采样频率
-    #             "reg_alpha": 0.05,  # 减小L1正则化，允许更多特征参与
-    #             "reg_lambda": 0.5,  # 减小L2正则化
-    #             "min_child_samples": 10,  # 减小最小样本数要求
-    #             "early_stopping_rounds": 200,  # 增加早停轮数，给模型更多机会
-    #             "verbose": 50,
-    #             "metric": ["l1", "l2"],
-    #             # "first_metric_only": False,  # 同时监控两个指标
-    #         },
-    #     },
-    #     "dataset": {
-    #         "class": "DatasetH",
-    #         "module_path": "qlib.data.dataset",
-    #         "kwargs": {
-    #             "handler": handler,
-    #             "segments": {
-    #                 "train": ("2013-01-01", "2019-12-31"),  # 缩短训练集
-    #                 "valid": ("2020-01-01", "2021-12-31"),  # 增加验证集
-    #                 "test": ("2022-01-01", "2023-12-31"),  # 缩短测试集
-    #             },
-    #         },
-    #     },
-    #     "record": {
-    #         "class": "SignalRecord",
-    #         "module_path": "qlib.workflow.record_temp",
-    #         "kwargs": {"model": "<MODEL>", "dataset": "<DATASET>"},
-    #     },
-    # }
+    # dataset = DatasetS(handler=handler)
 
-    # task_train(config, experiment_name="future_alpha_test")
+    dataset = DatasetH(
+        handler=handler,
+        segments={
+            "train": ("2006-01-01", "2017-08-14"),
+            "valid": ("2017-08-15", "2021-06-29"),
+            "test": ("2021-06-30", "2025-05-22"),
+        },
+    )
 
-    # exp = R.get_exp(experiment_name="future_alpha_test")
-    # recorder = exp.get_recorder()
-    # score = recorder.load_object("pred.pkl")
+    from qlib.contrib.model.gbdt import LGBModel
 
-    # score.to_csv("score.csv")
-    # metrics = evaluate_predictions(score)
-    # # 在训练后添加分析
-    # score = recorder.load_object("pred.pkl")
-    # analyze_predictions(score)
+    def objective(trial):
 
-    # 比较分布
-    # stats = compare_distributions(df["label"], score)
-    # plot_distribution(score["score"], title="得分", xlabel="score")
-    # plot_distribution(df["label"], title="Label distribution", xlabel="label")
+        param = {
+            "objective": "binary",
+            "metric": "binary_logloss",
+            "verbosity": -1,
+            "boosting_type": "gbdt",
+            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.2, log=True),
+            "num_leaves": trial.suggest_int("num_leaves", 16, 256),
+            "max_depth": trial.suggest_int("max_depth", 3, 12),
+            "lambda_l1": trial.suggest_float("lambda_l1", 1e-3, 10.0, log=True),
+            "lambda_l2": trial.suggest_float("lambda_l2", 1e-3, 10.0, log=True),
+            "feature_fraction": trial.suggest_float("feature_fraction", 0.6, 1.0),
+            "bagging_fraction": trial.suggest_float("bagging_fraction", 0.6, 1.0),
+            "bagging_freq": trial.suggest_int("bagging_freq", 1, 10),
+        }
+
+        data_key = DataHandlerLP.DK_L
+        col_set = ["feature", "label"]
+
+        train_data = dataset.prepare("train", col_set=col_set, data_key=data_key)
+        valid_data = dataset.prepare("valid", col_set=col_set, data_key=data_key)
+
+        features = train_data["feature"].columns.tolist()
+        selected_features_idx = [
+            i
+            for i, f in enumerate(features)
+            if trial.suggest_categorical(f"use_{f}", [True, False])
+        ]
+
+        assert (
+            len(selected_features_idx) > 0
+        ), "No features selected, please check the trial configuration."
+
+        x_train = train_data["feature"].values[:, selected_features_idx]
+        y_train = np.squeeze(train_data["label"].values)
+        x_valid = valid_data["feature"].values[:, selected_features_idx]
+        y_valid = np.squeeze(valid_data["label"].values)
+
+        dtrain = lgb.Dataset(x_train, label=y_train)
+        dvalid = lgb.Dataset(x_valid, label=y_valid)
+
+        early_stopping_callback = lgb.early_stopping(50)
+
+        verbose_eval_callback = lgb.log_evaluation(period=20)
+        evals_result_callback = lgb.record_evaluation({})
+
+        model = lgb.train(
+            param,
+            dtrain,
+            valid_sets=[dtrain, dvalid],
+            valid_names=["train", "valid"],
+            num_boost_round=1000,
+            callbacks=[
+                early_stopping_callback,
+                verbose_eval_callback,
+                evals_result_callback,
+            ],
+        )
+
+        preds_prob = model.predict(x_valid)
+
+        preds = (preds_prob > 0.5).astype(int)
+        acc = accuracy_score(y_valid, preds)
+        auc = roc_auc_score(y_valid, preds_prob)
+        f1 = f1_score(y_valid, preds)
+
+        print("准确率(Accuracy):", acc)
+        print("AUC:", auc)
+        print("F1-score:", f1)
+
+        # rmse = root_mean_squared_error(y_valid, preds)
+
+        # print("y_valid均值:", np.mean(y_valid))
+        # print("y_valid标准差:", np.std(y_valid))
+        # print("RMSE:", rmse)
+        # print("相对误差:", rmse / np.std(y_valid))
+
+        return 1 - auc
+
+    # study = optuna.create_study(direction="minimize")
+    # study.optimize(objective, n_trials=50)
+
+    # a = []
+    # b = {}
+
+    # for k, v in study.best_params.items():
+    #     _index = k.find("use_")  # Check if the key starts with "use_"
+    #     if _index > -1:
+    #         if study.best_params[k] is True:
+    #             a.append(k[_index + 4 :])  # Extract the feature name
+    #     else:
+    #         b.update({k: v})
+
+    # print("Best params:", a)
+    # print("Best params:", b)
+
+    config = {
+        "dataset": dataset,
+        "model": {
+            "class": "LGBModel",
+            "module_path": "qlib.contrib.model.gbdt",
+            "kwargs": {
+                "objective": "binary",
+                "metric": "binary_logloss",
+                "verbosity": -1,
+                "boosting_type": "gbdt",
+                "learning_rate": 0.0540573778890074,
+                "num_leaves": 47,
+                "max_depth": 3,
+                "lambda_l1": 0.005448745443420065,
+                "lambda_l2": 4.2068022977633275,
+                "feature_fraction": 0.9175216653656415,
+                "bagging_fraction": 0.9108460795811167,
+                "bagging_freq": 1,
+            },
+        },
+        "record": [
+            {
+                "class": "SignalRecord",
+                "module_path": "qlib.workflow.record_temp",
+                "kwargs": {"model": "<MODEL>", "dataset": "<DATASET>"},
+            },
+            {
+                "class": "SigAnaRecord",
+                "module_path": "qlib.workflow.record_temp",
+                "kwargs": {"ana_long_short": False, "ann_scaler": 252},
+            },
+        ],
+    }
+
+    task_train(config, experiment_name="future_alpha_test")
