@@ -54,3 +54,4 @@ tags
 !data/**/*.csv
 
 .venv
+.html
