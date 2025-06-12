@@ -64,22 +64,22 @@ if __name__ == "__main__":
         process_type=DataHandlerLP.PTYPE_I,
         shared_processors=[filterCols],
         infer_processors=[
-            RobustZScoreNorm(
+            ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
                 fit_end_time="2021-06-29",
-                clip_outlier=(3, -3),
+                # clip_outlier=(3, -3),
             ),
         ],
         learn_processors=[
             DropnaLabel(fields_group="label"),
             DropnaLabel(fields_group="feature"),
             Clip(col_list=["RET1"], clip_outlier=(0.05, -0.05)),
-            RobustZScoreNorm(
+            ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
                 fit_end_time="2021-06-29",
-                clip_outlier=(3, -3),
+                # clip_outlier=(3, -3),
             ),
         ],
     )
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
         # return 1 - auc, f1
         return 1 - acc  # Minimize the negative accuracy
-        #return f1  # Maximize the F1-score
+        # return f1  # Maximize the F1-score
 
     study = optuna.create_study(
         study_name="my_study",

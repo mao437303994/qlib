@@ -20,7 +20,7 @@ from ...model.base import Model
 from ...data.dataset.handler import DataHandlerLP
 from ...model.utils import ConcatDataset
 from ...data.dataset.weight import Reweighter
-
+import torch.nn.functional as F
 
 class LSTM(Model):
     """LSTM Model
@@ -147,6 +147,12 @@ class LSTM(Model):
         if self.loss == "mse":
             return self.mse(pred[mask], label[mask], weight[mask])
 
+        if self.loss == "bce":
+            # pred: logits, label: float in [0,1]
+            return torch.mean(
+                weight[mask] * F.binary_cross_entropy_with_logits(pred[mask], label[mask], reduction="none")
+            )
+        
         raise ValueError("unknown loss `%s`" % self.loss)
 
     def metric_fn(self, pred, label):
