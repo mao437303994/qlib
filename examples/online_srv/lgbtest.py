@@ -64,22 +64,22 @@ if __name__ == "__main__":
         process_type=DataHandlerLP.PTYPE_I,
         shared_processors=[filterCols],
         infer_processors=[
-            RobustZScoreNorm(
+            ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
                 fit_end_time="2021-06-29",
-                clip_outlier=(2.5, -2.5),
+                # clip_outlier=(3, -3),
             ),
         ],
         learn_processors=[
             DropnaLabel(fields_group="label"),
             DropnaLabel(fields_group="feature"),
             Clip(col_list=["RET1"], clip_outlier=(0.05, -0.05)),
-            RobustZScoreNorm(
+            ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
                 fit_end_time="2021-06-29",
-                clip_outlier=(3, -3),
+                # clip_outlier=(3, -3),
             ),
         ],
     )
@@ -140,19 +140,19 @@ if __name__ == "__main__":
         valid_data = dataset.prepare("valid", col_set=col_set, data_key=data_key)
 
         features = train_data["feature"].columns.tolist()
-        selected_features_idx = [
-            i
+        selected_features = [
+            f
             for i, f in enumerate(features)
             if trial.suggest_categorical(f"use_{f}", [True, False])
         ]
 
         assert (
-            len(selected_features_idx) > 0
+            len(selected_features) > 0
         ), "No features selected, please check the trial configuration."
 
-        x_train = train_data["feature"].values[:, selected_features_idx]
+        x_train = train_data["feature"][selected_features].values
         y_train = np.squeeze(train_data["label"].values)
-        x_valid = valid_data["feature"].values[:, selected_features_idx]
+        x_valid = valid_data["feature"][selected_features].values
         y_valid = np.squeeze(valid_data["label"].values)
 
         dtrain = lgb.Dataset(x_train, label=y_train)
@@ -195,13 +195,13 @@ if __name__ == "__main__":
         # print("相对误差:", rmse / np.std(y_valid))
 
         # return 1 - auc, f1
-        # return 1 - acc  # Minimize the negative accuracy
-        return f1  # Maximize the F1-score
+        return 1 - acc  # Minimize the negative accuracy
+        # return f1  # Maximize the F1-score
 
     study = optuna.create_study(
         study_name="my_study",
         # directions=["minimize", "maximize"],
-        direction="maximize",
+        direction="minimize",
     )
 
     study.optimize(objective, n_trials=50)

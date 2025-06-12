@@ -4,7 +4,9 @@ from ops import Month, Day, SAR, Sin, Cos
 from qlib.config import DISK_DATASET_CACHE, DISK_EXPRESSION_CACHE
 from qlib.contrib.data.handler import Alpha158
 import qlib
+from qlib.contrib.model.pytorch_lstm_ts import LSTM
 from qlib.data import D
+
 from qlib.data.dataset.handler import DataHandlerLP
 from qlib.data.dataset.loader import QlibDataLoader
 from qlib.data.dataset.processor import (
@@ -34,12 +36,17 @@ import optuna
 from sklearn.metrics import mean_squared_error, root_mean_squared_error
 from qlib.contrib.model.gbdt import LGBModel
 from qlib.data.dataset import DatasetH
+from qlib.data.dataset import TSDatasetH
 import lightgbm as lgb
 from lightgbm import LGBMRegressor
-
+from processors import Clip
+import torch.nn.functional as F
+import torch
 
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei"]
 plt.rcParams["axes.unicode_minus"] = False
+
+
 
 if __name__ == "__main__":
     qlib.init(
@@ -51,103 +58,7 @@ if __name__ == "__main__":
         **{"custom_ops": [SAR, Month, Day, Sin, Cos]},
     )
 
-    a = FilterCol(
-        col_list=[
-            "KMID2",
-            "KUP",
-            "KUP2",
-            "KLOW2",
-            "OPEN0",
-            "ROC5",
-            "ROC10",
-            "ROC20",
-            "ROC30",
-            "ROC60",
-            "MA5",
-            "MA20",
-            "MA30",
-            "MA60",
-            "STD5",
-            "STD10",
-            "STD60",
-            "BETA10",
-            "BETA60",
-            "RSQR20",
-            "RSQR60",
-            "RESI10",
-            "RESI20",
-            "RESI30",
-            "RESI60",
-            "MAX10",
-            "MAX20",
-            "MAX30",
-            "MAX60",
-            "MIN5",
-            "QTLU30",
-            "QTLD10",
-            "QTLD20",
-            "QTLD30",
-            "RANK20",
-            "RANK30",
-            "RSV5",
-            "IMAX10",
-            "IMAX60",
-            "IMIN10",
-            "IMIN60",
-            "IMXD5",
-            "CORR5",
-            "CORR20",
-            "CORR30",
-            "CORD5",
-            "CORD10",
-            "CORD30",
-            "CNTP5",
-            "CNTP10",
-            "CNTP30",
-            "CNTP60",
-            "CNTN10",
-            "CNTN20",
-            "CNTD10",
-            "CNTD30",
-            "CNTD60",
-            "SUMP10",
-            "SUMN5",
-            "SUMN20",
-            "SUMD60",
-            "VMA5",
-            "VMA20",
-            "VMA60",
-            "VSTD5",
-            "VSTD20",
-            "VSTD30",
-            "WVMA5",
-            "WVMA10",
-            "WVMA20",
-            "WVMA60",
-            "VSUMP10",
-            "VSUMP20",
-            "VSUMP30",
-            "VSUMP60",
-            "VSUMN20",
-            "VSUMN30",
-            "VSUMD5",
-            "VSUMD10",
-            "VSUMD20",
-            "VSUMD60",
-            "RET1",
-            "INTRADAY_RET",
-            "BIAS5",
-            "MIN_BIAS20",
-            "VOL_CHG1",
-            "MONTH",
-            "DAY",
-            "MONTH_SIN",
-            "DAY_SIN",
-            "DAY_COS",
-        ]
-    )
-
-    a = DropCol(col_list=["VWAP0"])
+    filterCols = DropCol(col_list=["VWAP0"])
 
     handler = Alpha(
         # instruments=["FGFI"],
@@ -155,29 +66,30 @@ if __name__ == "__main__":
         instruments="active",
         start_time="2006-01-01",
         end_time="2025-05-22",
+        process_type=DataHandlerLP.PTYPE_I,
+        shared_processors=[filterCols],
         infer_processors=[
-            a,
-            RobustZScoreNorm(
+            ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
                 fit_end_time="2021-06-29",
-                clip_outlier=True,
+                # clip_outlier=(3, -3),
             ),
         ],
         learn_processors=[
-            a,
             DropnaLabel(fields_group="label"),
             DropnaLabel(fields_group="feature"),
-            RobustZScoreNorm(
+            Clip(col_list=["RET1"], clip_outlier=(0.05, -0.05)),
+            ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
                 fit_end_time="2021-06-29",
-                clip_outlier=True,
+                # clip_outlier=(3, -3),
             ),
         ],
     )
 
-    dataset = DatasetH(
+    dataset = TSDatasetH(
         handler=handler,
         segments={
             "train": ("2006-01-01", "2017-08-14"),
@@ -186,157 +98,55 @@ if __name__ == "__main__":
         },
     )
 
-    from qlib.contrib.model.gbdt import LGBModel
-
     def objective(trial):
+        # 超参数空间
+        hidden_size = trial.suggest_int("hidden_size", 16, 128)
+        num_layers = trial.suggest_int("num_layers", 1, 3)
+        dropout = trial.suggest_float("dropout", 0.0, 0.5)
+        lr = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
+        batch_size = trial.suggest_categorical("batch_size", [64, 128, 256])
+        n_epochs = trial.suggest_int("n_epochs", 20, 100)
+        early_stop = trial.suggest_int("early_stop", 5, 20)
 
-        param = {
-            "objective": "binary",
-            "metric": "binary_logloss",
-            "verbosity": -1,
-            "boosting_type": "gbdt",
-            "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.2, log=True),
-            "num_leaves": trial.suggest_int("num_leaves", 16, 256),
-            "max_depth": trial.suggest_int("max_depth", 3, 12),
-            "lambda_l1": trial.suggest_float("lambda_l1", 1e-3, 10.0, log=True),
-            "lambda_l2": trial.suggest_float("lambda_l2", 1e-3, 10.0, log=True),
-            "feature_fraction": trial.suggest_float("feature_fraction", 0.6, 1.0),
-            "bagging_fraction": trial.suggest_float("bagging_fraction", 0.6, 1.0),
-            "bagging_freq": trial.suggest_int("bagging_freq", 1, 10),
-        }
+        # 获取特征数
+        _, d_feat = dataset.handler.fetch(col_set=["feature"], data_key="learn").shape
 
-        data_key = DataHandlerLP.DK_L
-        col_set = ["feature", "label"]
-
-        train_data = dataset.prepare("train", col_set=col_set, data_key=data_key)
-        valid_data = dataset.prepare("valid", col_set=col_set, data_key=data_key)
-
-        features = train_data["feature"].columns.tolist()
-        selected_features_idx = [
-            i
-            for i, f in enumerate(features)
-            if trial.suggest_categorical(f"use_{f}", [True, False])
-        ]
-
-        assert (
-            len(selected_features_idx) > 0
-        ), "No features selected, please check the trial configuration."
-
-        x_train = train_data["feature"].values[:, selected_features_idx]
-        y_train = np.squeeze(train_data["label"].values)
-        x_valid = valid_data["feature"].values[:, selected_features_idx]
-        y_valid = np.squeeze(valid_data["label"].values)
-
-        dtrain = lgb.Dataset(x_train, label=y_train)
-        dvalid = lgb.Dataset(x_valid, label=y_valid)
-
-        early_stopping_callback = lgb.early_stopping(50)
-
-        verbose_eval_callback = lgb.log_evaluation(period=20)
-        evals_result_callback = lgb.record_evaluation({})
-
-        model = lgb.train(
-            param,
-            dtrain,
-            valid_sets=[dtrain, dvalid],
-            valid_names=["train", "valid"],
-            num_boost_round=1000,
-            callbacks=[
-                early_stopping_callback,
-                verbose_eval_callback,
-                evals_result_callback,
-            ],
+        model = LSTM(
+            d_feat=d_feat,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            n_epochs=n_epochs,
+            lr=lr,
+            batch_size=batch_size,
+            early_stop=early_stop,
+            loss="bce",  # 二分类
+            optimizer="adam",
+            GPU=0,
         )
 
-        preds_prob = model.predict(x_valid)
+        a = pd.DataFrame()
 
-        preds = (preds_prob > 0.5).astype(int)
-        acc = accuracy_score(y_valid, preds)
-        auc = roc_auc_score(y_valid, preds_prob)
-        f1 = f1_score(y_valid, preds)
+        # 训练
+        evals_result = {}
+        model.fit(dataset, evals_result=evals_result)
 
-        print("准确率(Accuracy):", acc)
-        print("AUC:", auc)
-        print("F1-score:", f1)
+        # 验证集评估
+        valid_pred = model.predict(dataset)
+        valid_label = dataset.prepare("test", col_set=["label"], data_key="infer")
+        y_true = valid_label.values.squeeze()
+        y_pred_prob = valid_pred.values.squeeze()
+        y_pred = (y_pred_prob > 0.5).astype(int)
 
-        # rmse = root_mean_squared_error(y_valid, preds)
+        acc = accuracy_score(y_true, y_pred)
+        auc = roc_auc_score(y_true, y_pred_prob)
+        f1 = f1_score(y_true, y_pred)
 
-        # print("y_valid均值:", np.mean(y_valid))
-        # print("y_valid标准差:", np.std(y_valid))
-        # print("RMSE:", rmse)
-        # print("相对误差:", rmse / np.std(y_valid))
+        print(f"ACC: {acc}, AUC: {auc}, F1: {f1}")
 
-        #return 1 - auc, f1
-        #return 1 - acc  # Minimize the negative accuracy
-        return f1 # Maximize the F1-score
+        return 1 - acc  # 或 -f1, 1-auc，按你的优化目标
 
-    study = optuna.create_study(
-        study_name="my_study",
-        #directions=["minimize", "maximize"],
-        direction="maximize",
-    )
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=30)
 
-    study.optimize(objective, n_trials=50)
-
-    # a = []
-    # b = {}
-
-    # for k, v in study.best_params.items():
-    #     _index = k.find("use_")  # Check if the key starts with "use_"
-    #     if _index > -1:
-    #         if study.best_params[k] is True:
-    #             a.append(k[_index + 4 :])  # Extract the feature name
-    #     else:
-    #         b.update({k: v})
-
-    # print("Best params:", a)
-    # print("Best params:", b)
-
-    # df = study.trials_dataframe()
-    # df.to_csv("optuna_trials.csv", index=False)
-
-    # fig = optuna.visualization.plot_optimization_history(study)
-    # fig.write_html("plot_optimization_history.html")
-    # fig = optuna.visualization.plot_param_importances(study)
-    # fig.write_html("plot_param_importances.html")
-    # fig = optuna.visualization.plot_parallel_coordinate(study)
-    # fig.write_html("plot_parallel_coordinate.html")
-
-    config = {
-        "dataset": dataset,
-        "model": {
-            "class": "LGBModel",
-            "module_path": "qlib.contrib.model.gbdt",
-            "kwargs": {
-                "objective": "binary",
-                "metric": "binary_logloss",
-                "verbosity": -1,
-                "boosting_type": "gbdt",
-                "learning_rate": 0.0540573778890074,
-                "num_leaves": 47,
-                "max_depth": 3,
-                "lambda_l1": 0.005448745443420065,
-                "lambda_l2": 4.2068022977633275,
-                "feature_fraction": 0.9175216653656415,
-                "bagging_fraction": 0.9108460795811167,
-                "bagging_freq": 1,
-            },
-        },
-        "record": [
-            {
-                "class": "SignalRecord",
-                "module_path": "qlib.workflow.record_temp",
-                "kwargs": {"model": "<MODEL>", "dataset": "<DATASET>"},
-            },
-            {
-                "class": "SigAnaRecord",
-                "module_path": "qlib.workflow.record_temp",
-                "kwargs": {"ana_long_short": False, "ann_scaler": 252},
-            },
-        ],
-    }
-
-    # task_train(config, experiment_name="future_alpha_test")
-    # exp = R.get_exp(experiment_name="future_alpha_test")
-    # r =exp.get_recorder()
-    # r.load_object("pre")
+    print("Best params:", study.best_params)

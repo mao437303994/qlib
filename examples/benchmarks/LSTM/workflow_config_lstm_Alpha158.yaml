@@ -1,6 +1,7 @@
 qlib_init:
     provider_uri: "~/.qlib/qlib_data/cn_data"
     region: cn
+    kernels: 1
 market: &market csi300
 benchmark: &benchmark SH000300
 data_handler_config: &data_handler_config
@@ -20,7 +21,7 @@ data_handler_config: &data_handler_config
         - class: RobustZScoreNorm
           kwargs:
               fields_group: feature
-              clip_outlier: true
+              clip_outlier: [3, -3]
         - class: Fillna
           kwargs:
               fields_group: feature

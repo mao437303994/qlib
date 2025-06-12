@@ -21,7 +21,7 @@ class Month(ElemOperator):
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
         valid = (series > 0) & (series < 4102444800)
-        series = series[valid].astype(np.int64)
+        series = series[valid]
         return pd.to_datetime(series, unit="s").dt.month
 
 
@@ -30,7 +30,7 @@ class Day(ElemOperator):
     def _load_internal(self, instrument, start_index, end_index, *args):
         series = self.feature.load(instrument, start_index, end_index, *args)
         valid = (series > 0) & (series < 4102444800)
-        series = series[valid].astype(np.int64)
+        series = series[valid]
         return pd.to_datetime(series, unit="s").dt.day
 
 
