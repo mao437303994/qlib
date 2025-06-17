@@ -15,7 +15,6 @@ from qlib.data.dataset.processor import (
 from qlib.model.trainer import task_train
 from qlib.utils.mod import init_instance_by_config
 from qlib.workflow import R
-from sar import SAR
 import pandas as pd
 
 import pandas as pd
