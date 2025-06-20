@@ -196,17 +196,19 @@ if __name__ == "__main__":
     fs = os.listdir("data/data")
     for f in fs:
         if f.endswith(".csv"):
-            filename = os.path.join("data/data", f)
-            df = pd.read_csv(filename)
+            df = pd.read_csv(os.path.join("data/data", f))
             t = pd.DataFrame()
+            b = pd.to_datetime(df["date"])
             t["symbol"] = df["symbol"]
-            t["date"] = pd.to_datetime(df["date"])
+            t["date"] = b
             t["open"] = df["open"].astype(float)
             t["close"] = df["close"].astype(float)
             t["high"] = df["high"].astype(float)
             t["low"] = df["low"].astype(float)
             t["volume"] = df["volume"].astype(float)
             t["oi"] = df["oi"].astype(float)
-            t["timestamp"] = pd.to_datetime(df["date"]).astype("int64") // 10**9
-            t.to_csv(filename, index=False)
+            t["month"] = b.dt.month
+            t["week"] = b.dt.isocalendar().week  # 周数
+            t["quarter"] = b.dt.quarter          # 季度
+            t.to_csv(os.path.join("data/data/data", f), index=False)
     pass

@@ -505,10 +505,10 @@ if __name__ == "__main__":
     #fire.Fire({"dump_all": DumpDataAll, "dump_fix": DumpDataFix, "dump_update": DumpDataUpdate})
 
     DumpDataAll(
-        csv_path="data/data",
+        csv_path="data/data/data",
         qlib_dir="~/.qlib/qlib_data/cn_future",
         max_workers=1,
-        include_fields="open,close,high,low,volume,oi,timestamp",
+        include_fields="open,close,high,low,volume,oi,month,week,quarter",
         date_field_name="date",
         symbol_field_name="symbol",
     ).dump()
