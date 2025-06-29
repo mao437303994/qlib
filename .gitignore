@@ -58,3 +58,5 @@ data/data/data/*.csv
 
 futures_data/data/
 futures_data/futures/
+
+*.html
