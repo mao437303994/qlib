@@ -170,7 +170,7 @@ if __name__ == "__main__":
             header=None,
             names=["code"],
         )
-        emindfi = emindfi[emindfi["code"].isin(futures_active["code"])]
+        emindfi = futures[futures["code"].isin(emindfi["code"])].copy()
         emindfi.to_csv(
             os.path.join(toPath, "instruments/emindfi.txt"),
             sep="\t",
