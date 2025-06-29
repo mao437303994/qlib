@@ -55,3 +55,6 @@ tags
 data/data/data/*.csv
 .venv
 .html
+
+futures_data/data/
+futures_data/futures/
