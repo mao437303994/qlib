@@ -28,8 +28,9 @@ from scipy import stats
 import os
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
-import sweetviz as sv
-from ydata_profiling import ProfileReport
+
+# import sweetviz as sv
+# from ydata_profiling import ProfileReport
 import optuna
 from sklearn.metrics import mean_squared_error, root_mean_squared_error
 from qlib.contrib.model.gbdt import LGBModel
@@ -43,12 +44,10 @@ plt.rcParams["axes.unicode_minus"] = False
 
 if __name__ == "__main__":
     qlib.init(
-        provider_uri="~/.qlib/qlib_data/cn_data",
+        provider_uri="~/.qlib/qlib_data/cn_future",
         region="cn_future",
         kernels=1,
-        expression_cache=DISK_EXPRESSION_CACHE,
-        dataset_cache=DISK_DATASET_CACHE,
-        **{"custom_ops": [SAR, Month, Day, Sin, Cos]},
+        **{"custom_ops": [Month, Day, Sin, Cos]},
     )
 
     # filterCols = FilterCol(col_list=["VSUMP20"])
@@ -56,10 +55,9 @@ if __name__ == "__main__":
     filterCols = DropCol(col_list=["VWAP0"])
 
     handler = Alpha(
-        # instruments=["FGFI"],
         # drop_raw=True,
-        # instruments="active",
-        instruments="csi300",
+        # instruments="csi300",
+        instruments="active",
         start_time="2006-01-01",
         end_time="2025-05-22",
         process_type=DataHandlerLP.PTYPE_I,
@@ -68,30 +66,27 @@ if __name__ == "__main__":
             ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
-                fit_end_time="2021-06-29",
-                # clip_outlier=(3, -3),
+                fit_end_time="2017-08-14",
             ),
         ],
         learn_processors=[
             DropnaLabel(fields_group="label"),
             DropnaLabel(fields_group="feature"),
-            Clip(col_list=["RET1"], clip_outlier=(0.05, -0.05)),
             ZScoreNorm(
                 fields_group="feature",
                 fit_start_time="2006-01-01",
-                fit_end_time="2021-06-29",
-                # clip_outlier=(3, -3),
+                fit_end_time="2017-08-14",
             ),
         ],
     )
 
-    df = handler.fetch(col_set=["feature", "label"], data_key="learn")
-    #df["label"].to_csv("label.csv")
-    #df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
+    # df = handler.fetch(col_set=["feature", "label"], data_key="learn")
+    # df["label"].to_csv("label.csv")
+    # df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
     # 生成分析报告
-    #report = sv.analyze(df["feature"])
+    # report = sv.analyze(df["feature"])
     # 保存为HTML文件
-    #report.show_html("sweetviz_report_1.html")
+    # report.show_html("sweetviz_report_1.html")
 
     # profile = ProfileReport(df["feature"], title="特征分析报告", explorative=True)
     # # 保存为HTML文件
@@ -106,8 +101,6 @@ if __name__ == "__main__":
     # df["label"].describe().to_csv("label_describe.csv")
     # df.corr().to_csv("corr.csv")
 
-    # dataset = DatasetS(handler=handler)
-
     dataset = DatasetH(
         handler=handler,
         segments={
@@ -120,10 +113,9 @@ if __name__ == "__main__":
     def objective(trial):
 
         param = {
-            "objective": "binary",
-            "metric": "binary_logloss",
-            "verbosity": -1,
-            "boosting_type": "gbdt",
+            "lose": "binary",
+            "boosting": "gbdt",
+            "metric": "auc",
             "learning_rate": trial.suggest_float("learning_rate", 1e-3, 0.2, log=True),
             "num_leaves": trial.suggest_int("num_leaves", 16, 256),
             "max_depth": trial.suggest_int("max_depth", 3, 12),
@@ -134,75 +126,14 @@ if __name__ == "__main__":
             "bagging_freq": trial.suggest_int("bagging_freq", 1, 10),
         }
 
-        data_key = DataHandlerLP.DK_L
-        col_set = ["feature", "label"]
-
-        train_data = dataset.prepare("train", col_set=col_set, data_key=data_key)
-        valid_data = dataset.prepare("valid", col_set=col_set, data_key=data_key)
-
-        features = train_data["feature"].columns.tolist()
-        selected_features = [
-            f
-            for i, f in enumerate(features)
-            if trial.suggest_categorical(f"use_{f}", [True, False])
-        ]
-
-        assert (
-            len(selected_features) > 0
-        ), "No features selected, please check the trial configuration."
-
-        x_train = train_data["feature"][selected_features].values
-        y_train = np.squeeze(train_data["label"].values)
-        x_valid = valid_data["feature"][selected_features].values
-        y_valid = np.squeeze(valid_data["label"].values)
-
-        dtrain = lgb.Dataset(x_train, label=y_train)
-        dvalid = lgb.Dataset(x_valid, label=y_valid)
-
-        early_stopping_callback = lgb.early_stopping(50)
-
-        verbose_eval_callback = lgb.log_evaluation(period=20)
-        evals_result_callback = lgb.record_evaluation({})
-
-        model = lgb.train(
-            param,
-            dtrain,
-            valid_sets=[dtrain, dvalid],
-            valid_names=["train", "valid"],
-            num_boost_round=1000,
-            callbacks=[
-                early_stopping_callback,
-                verbose_eval_callback,
-                evals_result_callback,
-            ],
-        )
-
-        preds_prob = model.predict(x_valid)
-
-        preds = (preds_prob > 0.5).astype(int)
-        acc = accuracy_score(y_valid, preds)
-        auc = roc_auc_score(y_valid, preds_prob)
-        f1 = f1_score(y_valid, preds)
-
-        print("准确率(Accuracy):", acc)
-        print("AUC:", auc)
-        print("F1-score:", f1)
-
-        # rmse = root_mean_squared_error(y_valid, preds)
-
-        # print("y_valid均值:", np.mean(y_valid))
-        # print("y_valid标准差:", np.std(y_valid))
-        # print("RMSE:", rmse)
-        # print("相对误差:", rmse / np.std(y_valid))
-
-        # return 1 - auc, f1
-        return 1 - acc  # Minimize the negative accuracy
-        # return f1  # Maximize the F1-score
+        model = LGBModel(**param)
+        evals_result = {}
+        model.fit(dataset=dataset, evals_result=evals_result)
+        return max(evals_result["valid"]["auc"])
 
     study = optuna.create_study(
         study_name="my_study",
-        # directions=["minimize", "maximize"],
-        direction="minimize",
+        direction="maximize",  # ["minimize", "maximize"],
     )
 
     study.optimize(objective, n_trials=50)

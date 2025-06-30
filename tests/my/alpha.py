@@ -8,10 +8,6 @@ class Alpha(Alpha158):
         # # 添加自定义特征
 
         fields += [
-            "$close",  # 收盘价
-            "$open",  # 开盘价
-            "$high",  # 最高价
-            "$low",  # 最低价
             "($close/Ref($close,1))-1",  # 昨日涨跌幅
             "($close/Ref($close,5))-1",  # 5日动量
             "($close/Ref($close,20))-1",  # 20日动量
@@ -31,10 +27,6 @@ class Alpha(Alpha158):
         ]
 
         names += [
-            "CLOSE",  # 收盘价
-            "OPEN",  # 开盘价
-            "HIGH",  # 最高价
-            "LOW",  # 最低价
             "RET1",  # 昨日涨跌幅
             "RET5",  # 5日动量
             "RET20",  # 20日动量
@@ -54,21 +46,21 @@ class Alpha(Alpha158):
         ]
 
         fields += [
-            "Month($timestamp)",
-            "Day($timestamp)",
-            "Sin(2*PI*Month($timestamp)/12)",
-            "Cos(2*PI*Month($timestamp)/12)",
-            "Sin(2*PI*Day($timestamp)/31)",
-            "Cos(2*PI*Day($timestamp)/31)",
+            "Sin(2*PI*($month/12))",
+            "Cos(2*PI*($month/12))",
+            "Sin(2*PI*($week/52))",
+            "Cos(2*PI*($week/52))",
+            "Sin(2*PI*($quarter/4))",
+            "Cos(2*PI*($quarter/4))",
         ]
 
         names += [
-            "MONTH",
-            "DAY",
             "MONTH_SIN",
             "MONTH_COS",
-            "DAY_SIN",
-            "DAY_COS",
+            "WEEK_SIN",
+            "WEEK_COS",
+            "QUARTER_SIN",
+            "QUARTER_COS",
         ]
 
         # print(fields)
@@ -77,5 +69,3 @@ class Alpha(Alpha158):
     def get_label_config(self):
         return ["If((Ref($close,-1)/$close-1)>0,1,0)"], ["LABEL0"]
         #return ["(Ref($close,-1)/$close-1)*100"], ["LABEL0"]
-
-
