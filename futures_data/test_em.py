@@ -4,6 +4,7 @@ from requests import get
 import pandas as pd
 import datetime
 
+
 def futures_jq_em() -> pd.DataFrame:
     url = "https://futsseapi.eastmoney.com/list/risk/efi?orderBy=&sort=&pageSize=999&pageIndex=0&specificContract=true&platform=zbPC&field=name,dm,sc"
     r = get(url=url)
@@ -113,8 +114,12 @@ if __name__ == "__main__":
                     "quarter": date.dt.quarter,
                 }
             )
-            
-            temp = temp[temp['date'] < datetime.datetime.now().date()]  # 过滤掉未来数据
+
+            today = pd.Timestamp("today")
+            if today.hour < 15:
+                today = today.normalize()
+                temp = temp[temp["date"] < today]  # 过滤掉未来数据
+
             ptc = temp["close"].pct_change().abs() * 100
             temp = temp[(ptc < 10) | (ptc.isna())]  # 过滤掉涨跌幅超过10%的数据
             temp = temp[temp["oi"] > 10000]  # 过滤掉持仓量小于1万的合约
