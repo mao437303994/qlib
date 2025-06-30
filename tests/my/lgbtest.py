@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # filterCols = FilterCol(col_list=["VSUMP20"])
 
-    # filterCols = DropCol(col_list=["VWAP0"])
+    filterCols = DropCol(col_list=["VWAP0"])
 
     handler = Alpha(
         # instruments=["FGFI"],
@@ -62,36 +62,36 @@ if __name__ == "__main__":
         instruments="csi300",
         start_time="2006-01-01",
         end_time="2025-05-22",
-        # process_type=DataHandlerLP.PTYPE_I,
-        # shared_processors=[filterCols],
-        # infer_processors=[
-        #     ZScoreNorm(
-        #         fields_group="feature",
-        #         fit_start_time="2006-01-01",
-        #         fit_end_time="2021-06-29",
-        #         # clip_outlier=(3, -3),
-        #     ),
-        # ],
-        # learn_processors=[
-        #     DropnaLabel(fields_group="label"),
-        #     DropnaLabel(fields_group="feature"),
-        #     Clip(col_list=["RET1"], clip_outlier=(0.05, -0.05)),
-        #     ZScoreNorm(
-        #         fields_group="feature",
-        #         fit_start_time="2006-01-01",
-        #         fit_end_time="2021-06-29",
-        #         # clip_outlier=(3, -3),
-        #     ),
-        # ],
+        process_type=DataHandlerLP.PTYPE_I,
+        shared_processors=[filterCols],
+        infer_processors=[
+            ZScoreNorm(
+                fields_group="feature",
+                fit_start_time="2006-01-01",
+                fit_end_time="2021-06-29",
+                # clip_outlier=(3, -3),
+            ),
+        ],
+        learn_processors=[
+            DropnaLabel(fields_group="label"),
+            DropnaLabel(fields_group="feature"),
+            Clip(col_list=["RET1"], clip_outlier=(0.05, -0.05)),
+            ZScoreNorm(
+                fields_group="feature",
+                fit_start_time="2006-01-01",
+                fit_end_time="2021-06-29",
+                # clip_outlier=(3, -3),
+            ),
+        ],
     )
 
     df = handler.fetch(col_set=["feature", "label"], data_key="learn")
     #df["label"].to_csv("label.csv")
     #df1 = handler.fetch(col_set=["feature", "label"], data_key="raw")
     # 生成分析报告
-    report = sv.analyze(df["feature"])
+    #report = sv.analyze(df["feature"])
     # 保存为HTML文件
-    report.show_html("sweetviz_report_1.html")
+    #report.show_html("sweetviz_report_1.html")
 
     # profile = ProfileReport(df["feature"], title="特征分析报告", explorative=True)
     # # 保存为HTML文件
