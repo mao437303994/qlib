@@ -2,7 +2,7 @@ import os
 
 from requests import get
 import pandas as pd
-
+import datetime
 
 def futures_jq_em() -> pd.DataFrame:
     url = "https://futsseapi.eastmoney.com/list/risk/efi?orderBy=&sort=&pageSize=999&pageIndex=0&specificContract=true&platform=zbPC&field=name,dm,sc"
@@ -106,13 +106,15 @@ if __name__ == "__main__":
                     "high": data["high"].astype(float),
                     "low": data["low"].astype(float),
                     "volume": data["volume"].astype(float),
+                    "factor": 1.0,  # 假设没有复权
                     "oi": data["position"].astype(float),
                     "month": date.dt.month,
                     "week": date.dt.isocalendar().week,
                     "quarter": date.dt.quarter,
                 }
             )
-
+            
+            temp = temp[temp['date'] < datetime.datetime.now().date()]  # 过滤掉未来数据
             ptc = temp["close"].pct_change().abs() * 100
             temp = temp[(ptc < 10) | (ptc.isna())]  # 过滤掉涨跌幅超过10%的数据
             temp = temp[temp["oi"] > 10000]  # 过滤掉持仓量小于1万的合约
