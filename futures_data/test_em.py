@@ -142,7 +142,7 @@ if __name__ == "__main__":
         csv_path=fromPath,
         qlib_dir=toPath,
         max_workers=1,
-        include_fields="open,close,high,low,volume,oi,month,week,quarter",
+        include_fields="open,close,high,low,volume,oi,month,week,quarter,factor",
         date_field_name="date",
         symbol_field_name="symbol",
     ).dump()
