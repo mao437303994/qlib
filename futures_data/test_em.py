@@ -107,6 +107,7 @@ if __name__ == "__main__":
                     "high": data["high"].astype(float),
                     "low": data["low"].astype(float),
                     "volume": data["volume"].astype(float),
+                    "change": data["close"].pct_change().fillna(0),
                     "factor": 1.0,  # 假设没有复权
                     "oi": data["position"].astype(float),
                     "month": date.dt.month,
@@ -142,7 +143,7 @@ if __name__ == "__main__":
         csv_path=fromPath,
         qlib_dir=toPath,
         max_workers=1,
-        include_fields="open,close,high,low,volume,oi,month,week,quarter,factor",
+        include_fields="open,close,high,low,volume,oi,month,week,quarter,factor,change",
         date_field_name="date",
         symbol_field_name="symbol",
     ).dump()
