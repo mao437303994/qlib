@@ -1,25 +1,47 @@
 import os
+import re
 
-from requests import get
+import requests
 import pandas as pd
 import datetime
 
 
-def futures_jq_em() -> pd.DataFrame:
-    url = "https://futsseapi.eastmoney.com/list/risk/efi?orderBy=&sort=&pageSize=999&pageIndex=0&specificContract=true&platform=zbPC&field=name,dm,sc"
-    r = get(url=url)
+def futures_jq_efi() -> pd.DataFrame:
+    url = "https://futsseapi.eastmoney.com/list/risk/efi?orderBy=&sort=&pageSize=999&pageIndex=0&specificContract=true&platform=zbPC&field=name,dm,sc,uid"
+    r = requests.get(url=url)
     data_json = r.json()
 
     sc = []
     dm = []
     name = []
+    uid = []
 
     for item in data_json["list"]:
         sc.append(item["sc"])
         dm.append(item["dm"])
         name.append(item["name"])
+        uid.append(item["uid"])
 
-    return pd.DataFrame({"sc": sc, "dm": dm, "name": name})
+    return pd.DataFrame({"sc": sc, "dm": dm, "name": name, "uid": uid})
+
+
+def futures_jq_em() -> pd.DataFrame:
+    url = "https://futsseapi.eastmoney.com/list/trans/block/risk/mk0830?orderBy=&sort=&pageSize=999&pageIndex=0&specificContract=true&platform=zbPC&field=name,dm,sc,uid"
+    r = requests.get(url=url)
+    data_json = r.json()
+
+    sc = []
+    dm = []
+    name = []
+    uid = []
+
+    for item in data_json["list"]:
+        sc.append(item["sc"])
+        dm.append(item["dm"])
+        name.append(item["name"])
+        uid.append(item["uid"])
+
+    return pd.DataFrame({"sc": sc, "dm": dm, "name": name, "uid": uid})
 
 
 def futures_jq_hist_em(symbol: str) -> pd.DataFrame:
@@ -38,7 +60,7 @@ def futures_jq_hist_em(symbol: str) -> pd.DataFrame:
         "forcect": "1",
     }
 
-    r = get(url=url, params=params)
+    r = requests.get(url=url, params=params)
     data_json = r.json()
     code = data_json["data"]["code"]
     klines = data_json["data"]["klines"]
@@ -75,6 +97,71 @@ def futures_jq_hist_em(symbol: str) -> pd.DataFrame:
     )
 
 
+class Variety:
+
+    def __init__(self, sc: str, dm: str, name: str):
+        self.sc = sc
+        self.dm = dm
+        self.name = name
+
+    def __hash__(self):
+        return hash((self.sc, self.dm.upper()))
+
+    def __eq__(self, other):
+        if not isinstance(other, Variety):
+            return NotImplemented
+        if not self.sc == other.sc:
+            return False
+        if not self.dm.upper() == other.dm.upper():
+            return False
+        return True
+
+    def __str__(self):
+        return f"{self.sc}.{self.dm} ({self.name})"
+
+    def __repr__(self):
+        return f"Variety(sc={self.sc!r}, dm={self.dm!r}, name={self.name!r})"
+
+
+def get_variety_list() -> pd.DataFrame:
+
+    def to_efi(dm: str) -> str:
+        m = re.match(r"([A-Z]+)\d+$", dm)
+        if m:
+            variety_code = m.group(1)
+            return variety_code + "FI"
+        else:
+            m = re.match(r"([a-z]+)\d+$", dm)
+            if m:
+                variety_code = m.group(1)
+                return variety_code + "fi"
+
+        raise ValueError(f"无法从 '{dm}' 提取品种代码")
+
+    _futures_jq_em = futures_jq_em()
+
+    em_variety = {
+        Variety("159", to_efi(row["dm"]), row["name"])
+        for _, row in _futures_jq_em.iterrows()
+        if not row["uid"].startswith("CFFEX")
+    }
+
+    _futures_jq_efi = futures_jq_efi()
+
+    efi_variety = {
+        Variety("159", row["dm"], row["name"])
+        for _, row in _futures_jq_efi.iterrows()
+        if not row["uid"].startswith("CFFEX")
+    }
+
+    varietys = efi_variety | em_variety  # 合并两个集合
+    sc = [v.sc for v in varietys]
+    dm = [v.dm for v in varietys]
+    name = [v.name for v in varietys]
+
+    return pd.DataFrame({"sc": sc, "dm": dm, "name": name})
+
+
 if __name__ == "__main__":
 
     ## 下载指数日频数据
@@ -83,15 +170,15 @@ if __name__ == "__main__":
     futures = os.path.join(dir, "futures/em.csv")
     if not os.path.exists(futures):
         os.makedirs(os.path.dirname(futures), exist_ok=True)
-        _futures_jq_em = futures_jq_em()
-        _futures_jq_em.to_csv(futures, index=False)
+        _get_variety_list = get_variety_list()
+        _get_variety_list.to_csv(futures, index=False)
     else:
-        _futures_jq_em = pd.read_csv(futures)
+        _get_variety_list = pd.read_csv(futures)
 
     fromPath = os.path.join(dir, "data")
     os.makedirs(fromPath, exist_ok=True)
 
-    for index, row in _futures_jq_em.iterrows():
+    for index, row in _get_variety_list.iterrows():
         filename = os.path.join(fromPath, f"{row['dm']}.csv")
         if not os.path.exists(filename):
             symbol = f"{row['sc']}.{row['dm']}"
