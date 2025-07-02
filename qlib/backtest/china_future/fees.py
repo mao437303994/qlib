@@ -1,4 +1,5 @@
 from io import StringIO
+import re
 import pandas as pd
 import requests
 
@@ -29,3 +30,30 @@ def futures_fees_info() -> pd.DataFrame:
             "short_margin_per_lot": temp_df["做空保证金（按手）"],
         }
     )
+
+
+if __name__ == "__main__":
+    all = pd.read_csv(
+        "~/.qlib/qlib_data/cn_future/instruments/all.txt",
+        sep="\t",
+        header=None,
+        names=[
+            "symbol",
+            "start_date",
+            "end_date",
+        ],
+    )
+
+    fees_df = futures_fees_info()
+
+    for index, row in all.iterrows():
+        symbol = row["symbol"]
+        m = re.match(r"([a-z]+)(fi|\d+)$", symbol, re.IGNORECASE)
+        variety_code = m.group(1) if m else None
+        if variety_code is None:
+            print("指数: ", symbol)
+        elif variety_code.upper() not in fees_df.index:
+            print("不存在: ", symbol)
+        else:
+            variety_info = fees_df.loc[variety_code]
+            # print(symbol)
