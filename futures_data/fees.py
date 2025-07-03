@@ -12,7 +12,7 @@ def futures_fees_info() -> pd.DataFrame:
     temp_df = temp_df.drop_duplicates(subset=["品种代码"])
     temp_df = temp_df.reset_index(drop=True)
 
-    return pd.DataFrame(
+    df = pd.DataFrame(
         {
             "variety_code": temp_df["品种代码"],
             "variety_name": temp_df["品种名称"],
@@ -30,6 +30,10 @@ def futures_fees_info() -> pd.DataFrame:
             "short_margin_per_lot": temp_df["做空保证金（按手）"],
         }
     )
+
+    df.index = df["variety_code"].str.upper()
+
+    return df
 
 
 if __name__ == "__main__":

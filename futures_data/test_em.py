@@ -1,9 +1,11 @@
 import os
 import re
 
+import numpy as np
 import requests
 import pandas as pd
 import datetime
+from fees import futures_fees_info
 
 
 def futures_jq_efi() -> pd.DataFrame:
@@ -178,11 +180,50 @@ if __name__ == "__main__":
     fromPath = os.path.join(dir, "data")
     os.makedirs(fromPath, exist_ok=True)
 
+    fees_df = futures_fees_info()
+
     for index, row in _get_variety_list.iterrows():
         filename = os.path.join(fromPath, f"{row['dm']}.csv")
         if not os.path.exists(filename):
             symbol = f"{row['sc']}.{row['dm']}"
             data = futures_jq_hist_em(symbol)
+
+            m = re.match(r"([a-z]+)(fi|\d+)$", row["dm"], re.IGNORECASE)
+            variety_code = m.group(1) if m else None
+
+            if (variety_code is None) or (variety_code.upper() not in fees_df.index):
+                contract_multipliers = [np.nan] * len(data)
+                open_commission_rate = [np.nan] * len(data)
+                open_commission_per_lot = [np.nan] * len(data)
+                close_commission_rate = [np.nan] * len(data)
+                close_commission_per_lot = [np.nan] * len(data)
+                close_today_commission_rate = [np.nan] * len(data)
+                close_today_commission_per_lot = [np.nan] * len(data)
+                long_margin_rate = [np.nan] * len(data)
+                short_margin_rate = [np.nan] * len(data)
+            else:
+                variety_info = fees_df.loc[variety_code.upper()]
+                contract_multipliers = [variety_info["contract_multiplier"]] * len(data)
+                open_commission_rate = [variety_info["open_commission_rate"]] * len(
+                    data
+                )
+                open_commission_per_lot = [
+                    variety_info["open_commission_per_lot"]
+                ] * len(data)
+                close_commission_rate = [variety_info["close_commission_rate"]] * len(
+                    data
+                )
+                close_commission_per_lot = [
+                    variety_info["close_commission_per_lot"]
+                ] * len(data)
+                close_today_commission_rate = [
+                    variety_info["close_today_commission_rate"]
+                ] * len(data)
+                close_today_commission_per_lot = [
+                    variety_info["close_today_commission_per_lot"]
+                ] * len(data)
+                long_margin_rate = [variety_info["long_margin_rate"]] * len(data)
+                short_margin_rate = [variety_info["short_margin_rate"]] * len(data)
 
             date = pd.to_datetime(data["date"])
             temp = pd.DataFrame(
@@ -194,12 +235,22 @@ if __name__ == "__main__":
                     "high": data["high"].astype(float),
                     "low": data["low"].astype(float),
                     "volume": data["volume"].astype(float),
-                    "change": data["close"].pct_change().fillna(0),
+                    "change": data["close"].astype(float).pct_change().fillna(0),
                     "factor": 1.0,  # 假设没有复权
                     "oi": data["position"].astype(float),
                     "month": date.dt.month,
                     "week": date.dt.isocalendar().week,
                     "quarter": date.dt.quarter,
+                    ## 添加手续费信息
+                    "contract_multiplier": contract_multipliers,
+                    "open_commission_rate": open_commission_rate,
+                    "open_commission_per_lot": open_commission_per_lot,
+                    "close_commission_rate": close_commission_rate,
+                    "close_commission_per_lot": close_commission_per_lot,
+                    "close_today_commission_rate": close_today_commission_rate,
+                    "close_today_commission_per_lot": close_today_commission_per_lot,
+                    "long_margin_rate": long_margin_rate,
+                    "short_margin_rate": short_margin_rate,
                 }
             )
 
@@ -230,7 +281,7 @@ if __name__ == "__main__":
         csv_path=fromPath,
         qlib_dir=toPath,
         max_workers=1,
-        include_fields="open,close,high,low,volume,oi,month,week,quarter,factor,change",
+        include_fields="open,close,high,low,volume,oi,month,week,quarter,factor,change,contract_multiplier,open_commission_rate,open_commission_per_lot,close_commission_rate,close_commission_per_lot,close_today_commission_rate,close_today_commission_per_lot,long_margin_rate,short_margin_rate",
         date_field_name="date",
         symbol_field_name="symbol",
     ).dump()
