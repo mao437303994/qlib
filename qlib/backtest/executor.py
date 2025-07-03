@@ -615,7 +615,7 @@ class SimulatorExecutor(BaseExecutor):
                     "[I {:%Y-%m-%d %H:%M:%S}]: {} {}, price {:.2f}, amount {}, deal_amount {}, factor {}, "
                     "value {:.2f}, cash {:.2f}.".format(
                         trade_start_time,
-                        "sell" if order.direction == Order.SELL else "buy",
+                        "sell long" if order.direction == order.SELL_LONG else "sell short" if order.direction == order.SELL_SHORT else "buy long" if order.direction == order.BUY_LONG else "buy short",
                         order.stock_id,
                         trade_price,
                         order.amount,

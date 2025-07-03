@@ -349,9 +349,9 @@ def price_advantage(
             return 0.0
         else:
             return np.zeros_like(exec_price)
-    if direction == OrderDir.BUY:
+    if direction == OrderDir.BUY_LONG:
         res = (1 - exec_price / baseline_price) * 10000
-    elif direction == OrderDir.SELL:
+    elif direction == OrderDir.SELL_LONG:
         res = (exec_price / baseline_price - 1) * 10000
     else:
         raise ValueError(f"Unexpected order direction: {direction}")

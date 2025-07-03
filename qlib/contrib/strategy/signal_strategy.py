@@ -234,7 +234,7 @@ class TopkDropoutStrategy(BaseSignalStrategy):
                 stock_id=code,
                 start_time=trade_start_time,
                 end_time=trade_end_time,
-                direction=None if self.forbid_all_trade_at_limit else OrderDir.SELL,
+                direction=None if self.forbid_all_trade_at_limit else OrderDir.SELL_LONG,
             ):
                 continue
             if code in sell:
@@ -250,7 +250,7 @@ class TopkDropoutStrategy(BaseSignalStrategy):
                     amount=sell_amount,
                     start_time=trade_start_time,
                     end_time=trade_end_time,
-                    direction=Order.SELL,  # 0 for sell, 1 for buy
+                    direction=OrderDir.SELL_LONG,  # 0 for sell, 1 for buy
                 )
                 # is order executable
                 if self.trade_exchange.check_order(sell_order):
@@ -274,12 +274,12 @@ class TopkDropoutStrategy(BaseSignalStrategy):
                 stock_id=code,
                 start_time=trade_start_time,
                 end_time=trade_end_time,
-                direction=None if self.forbid_all_trade_at_limit else OrderDir.BUY,
+                direction=None if self.forbid_all_trade_at_limit else OrderDir.BUY_LONG,
             ):
                 continue
             # buy order
             buy_price = self.trade_exchange.get_deal_price(
-                stock_id=code, start_time=trade_start_time, end_time=trade_end_time, direction=OrderDir.BUY
+                stock_id=code, start_time=trade_start_time, end_time=trade_end_time, direction=OrderDir.BUY_LONG
             )
             buy_amount = value / buy_price
             factor = self.trade_exchange.get_factor(stock_id=code, start_time=trade_start_time, end_time=trade_end_time)
@@ -289,7 +289,7 @@ class TopkDropoutStrategy(BaseSignalStrategy):
                 amount=buy_amount,
                 start_time=trade_start_time,
                 end_time=trade_end_time,
-                direction=Order.BUY,  # 1 for buy
+                direction=Order.BUY_LONG,  # 1 for buy
             )
             buy_order_list.append(buy_order)
         return TradeDecisionWO(sell_order_list + buy_order_list, self)

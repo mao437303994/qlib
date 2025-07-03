@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Generator, List, Optional, Tuple, Union, Literal
 
 import pandas as pd
 
@@ -22,6 +22,7 @@ from ..utils import init_instance_by_config
 from .backtest import INDICATOR_METRIC, PORT_METRIC, backtest_loop, collect_data_loop
 from .decision import Order
 from .exchange import Exchange
+from .position import FuturePosition
 from .utils import CommonInfrastructure
 
 # make import more user-friendly by adding `from qlib.backtest import STH`
@@ -33,6 +34,7 @@ logger = get_module_logger("backtest caller")
 def get_exchange(
     exchange: Union[str, dict, object, Path] = None,
     freq: str = "day",
+    mode: Union[Literal["future"], None] = None,
     start_time: Union[pd.Timestamp, str] = None,
     end_time: Union[pd.Timestamp, str] = None,
     codes: Union[list, str] = "all",
@@ -94,6 +96,7 @@ def get_exchange(
 
         exchange = Exchange(
             freq=freq,
+            mode=mode,
             start_time=start_time,
             end_time=end_time,
             codes=codes,
@@ -107,7 +110,11 @@ def get_exchange(
         )
         return exchange
     else:
-        return init_instance_by_config(exchange, accept_types=Exchange)
+        return init_instance_by_config(
+            exchange,
+            accept_types=Exchange,
+            try_kwargs={"mode": mode},
+        )
 
 
 def create_account_instance(
@@ -203,7 +210,9 @@ def get_strategy_executor(
         exchange_kwargs["start_time"] = start_time
     if "end_time" not in exchange_kwargs:
         exchange_kwargs["end_time"] = end_time
-    trade_exchange = get_exchange(**exchange_kwargs)
+    mode = "future" if isinstance(trade_account.current_position, FuturePosition) else None
+    trade_exchange = get_exchange(**exchange_kwargs, mode=mode)
+
 
     common_infra = CommonInfrastructure(trade_account=trade_account, trade_exchange=trade_exchange)
     trade_strategy = init_instance_by_config(strategy, accept_types=BaseStrategy)

@@ -8,7 +8,7 @@ from datetime import time
 from enum import IntEnum
 
 # try to fix circular imports when enabling type hints
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, List, Optional, Tuple, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, List, Optional, Tuple, TypeVar, Union, Literal, cast
 
 from qlib.backtest.utils import TradeCalendarManager
 from qlib.data.data import Cal
@@ -29,8 +29,10 @@ DecisionType = TypeVar("DecisionType")
 
 class OrderDir(IntEnum):
     # Order direction
-    SELL = 0
-    BUY = 1
+    SELL_LONG = -2
+    SELL_SHORT = -1
+    BUY_SHORT = 1
+    BUY_LONG = 2
 
 
 @dataclass
@@ -43,7 +45,7 @@ class Order:
     end_time : pd.Timestamp
         closed end time for order trading
     direction : int
-        Order.SELL for sell; Order.BUY for buy
+        OrderDir.SELL_SHORT and OrderDir.BUY_SHORT for sell; OrderDir.BUY_LONG and OrderDir.SELL_LONG for buy
     factor : float
             presents the weight factor assigned in Exchange()
     """
@@ -77,12 +79,13 @@ class Order:
     # FIXME:
     # for compatible now.
     # Please remove them in the future
-    SELL: ClassVar[OrderDir] = OrderDir.SELL
-    BUY: ClassVar[OrderDir] = OrderDir.BUY
+    SELL_LONG : ClassVar[OrderDir] = OrderDir.SELL_LONG
+    SELL_SHORT: ClassVar[OrderDir] = OrderDir.SELL_SHORT
+    BUY_SHORT : ClassVar[OrderDir] = OrderDir.BUY_SHORT
+    BUY_LONG: ClassVar[OrderDir] = OrderDir.BUY_LONG
+
 
     def __post_init__(self) -> None:
-        if self.direction not in {Order.SELL, Order.BUY}:
-            raise NotImplementedError("direction not supported, `Order.SELL` for sell, `Order.BUY` for buy")
         self.deal_amount = 0.0
         self.factor = None
 
@@ -111,26 +114,41 @@ class Order:
         - `+1` indicates buying
         - `-1` value indicates selling
         """
-        return self.direction * 2 - 1
+        import numpy as np
+
+        return np.sign(self.direction)
 
     @staticmethod
     def parse_dir(direction: Union[str, int, np.integer, OrderDir, np.ndarray]) -> Union[OrderDir, np.ndarray]:
         if isinstance(direction, OrderDir):
             return direction
         elif isinstance(direction, (int, float, np.integer, np.floating)):
-            return Order.BUY if direction > 0 else Order.SELL
+            if direction >= 2:
+                return OrderDir.BUY_LONG
+            elif 0 <= direction < 2:
+                return OrderDir.BUY_SHORT
+            elif -2 < direction < 0:
+                return OrderDir.SELL_SHORT
+            elif direction <= -2:
+                return OrderDir.SELL_LONG
+            raise NotImplementedError(f"This type of input is not supported")
         elif isinstance(direction, str):
             dl = direction.lower().strip()
-            if dl == "sell":
-                return OrderDir.SELL
-            elif dl == "buy":
-                return OrderDir.BUY
-            else:
-                raise NotImplementedError(f"This type of input is not supported")
+            if dl == "sell_long":
+                return OrderDir.BUY_LONG
+            elif dl == "sell_short":
+                return OrderDir.SELL_SHORT
+            elif dl == "buy_short":
+                return OrderDir.BUY_SHORT
+            elif dl == "buy_long":
+                return OrderDir.BUY_LONG
+            raise NotImplementedError(f"This type of input is not supported")
         elif isinstance(direction, np.ndarray):
             direction_array = direction.copy()
-            direction_array[direction_array > 0] = Order.BUY
-            direction_array[direction_array <= 0] = Order.SELL
+            direction_array[ direction_array >= 2] = OrderDir.BUY_LONG
+            direction_array[(0 <= direction_array) & (direction_array < 2)] = OrderDir.BUY_SHORT
+            direction_array[(-2 < direction_array) & (direction_array < 0)] = OrderDir.SELL_SHORT
+            direction_array[direction_array <= -2] = OrderDir.SELL_LONG
             return direction_array
         else:
             raise NotImplementedError(f"This type of input is not supported")

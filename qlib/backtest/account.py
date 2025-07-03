@@ -9,7 +9,7 @@ import pandas as pd
 
 from qlib.utils import init_instance_by_config
 
-from .decision import BaseTradeDecision, Order
+from .decision import BaseTradeDecision, Order, OrderDir
 from .exchange import Exchange
 from .high_performance_ds import BaseOrderIndicator
 from .position import BasePosition
@@ -189,12 +189,12 @@ class Account:
 
             # update return from order
             trade_amount = trade_val / trade_price
-            if order.direction == Order.SELL:  # 0 for sell
+            if order.direction in (OrderDir.SELL_SHORT,OrderDir.SELL_LONG):  # 0 for sell
                 # when sell stock, get profit from price change
                 profit = trade_val - self.current_position.get_stock_price(order.stock_id) * trade_amount
                 self.accum_info.add_return_value(profit)  # note here do not consider cost
 
-            elif order.direction == Order.BUY:  # 1 for buy
+            elif order.direction in (OrderDir.BUY_SHORT, OrderDir.BUY_LONG):  # 1 for buy
                 # when buy stock, we get return for the rtn computing method
                 # profit in buy order is to make rtn is consistent with earning at the end of bar
                 profit = self.current_position.get_stock_price(order.stock_id) * trade_amount - trade_val
@@ -210,7 +210,7 @@ class Account:
         # then update current position
         # if stock is bought, there is no stock in current position, update current, then update account
         # The cost will be subtracted from the cash at last. So the trading logic can ignore the cost calculation
-        if order.direction == Order.SELL:
+        if order.direction in (OrderDir.SELL_SHORT, OrderDir.SELL_LONG):
             # sell stock
             self._update_state_from_order(order, trade_val, cost, trade_price)
             # update current position

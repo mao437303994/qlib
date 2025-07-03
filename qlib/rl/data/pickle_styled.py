@@ -131,7 +131,7 @@ class SimpleIntradayBacktestData(BaseIntradayBacktestData):
         if self.deal_price_type in ("bid_or_ask", "bid_or_ask_fill"):
             if self.order_dir is None:
                 raise ValueError("Order direction cannot be none when deal_price_type is not close.")
-            if self.order_dir == OrderDir.SELL:
+            if self.order_dir == OrderDir.SELL_LONG:
                 col = "$bid0"
             else:  # BUY
                 col = "$ask0"
@@ -142,7 +142,7 @@ class SimpleIntradayBacktestData(BaseIntradayBacktestData):
         price = self.data[col]
 
         if self.deal_price_type == "bid_or_ask_fill":
-            if self.order_dir == OrderDir.SELL:
+            if self.order_dir == OrderDir.SELL_LONG:
                 fill_col = "$ask0"
             else:
                 fill_col = "$bid0"

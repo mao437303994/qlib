@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, Literal, cast
+
+from annotated_types import Not
 
 from ..utils.index_data import IndexData
 
@@ -38,6 +40,7 @@ class Exchange:
     def __init__(
         self,
         freq: str = "day",
+        mode: Union[Literal["future"], None] = None,
         start_time: Union[pd.Timestamp, str] = None,
         end_time: Union[pd.Timestamp, str] = None,
         codes: Union[list, str] = "all",
@@ -55,6 +58,7 @@ class Exchange:
     ) -> None:
         """__init__
         :param freq:             frequency of data
+        :param mode:             mode of exchange, default None
         :param start_time:       closed start time for backtest
         :param end_time:         closed end time for backtest
         :param codes:            list stock_id list or a string of instruments(i.e. all, csi500, sse50)
@@ -129,6 +133,7 @@ class Exchange:
                                     index: MultipleIndex(instrument, pd.Datetime)
         """
         self.freq = freq
+        self.mode = mode
         self.start_time = start_time
         self.end_time = end_time
 
@@ -180,6 +185,19 @@ class Exchange:
             assert isinstance(limit_threshold, tuple)
             for exp in limit_threshold:
                 necessary_fields.add(exp)
+
+        if self.mode == "future":
+            # for future, we need to add some necessary fields
+            necessary_fields.add("$contract_multiplier")
+            necessary_fields.add("$open_commission_rate")
+            necessary_fields.add("$close_commission_rate")
+            necessary_fields.add("$close_today_commission_rate")
+            necessary_fields.add("$open_commission_per_lot")
+            necessary_fields.add("$close_commission_per_lot")
+            necessary_fields.add("$close_today_commission_per_lot")
+            necessary_fields.add("$long_margin_rate")
+            necessary_fields.add("$short_margin_rate")
+
         all_fields = list(necessary_fields | set(vol_lt_fields) | set(subscribe_fields))
 
         self.all_fields = all_fields
@@ -282,14 +300,15 @@ class Exchange:
             # set limit
             limit_threshold = cast(tuple, limit_threshold)
             # astype bool is necessary, because quote_df is an expression and could be float
-            self.quote_df["limit_buy"] = self.quote_df[limit_threshold[0]].astype("bool") | suspended
-            self.quote_df["limit_sell"] = self.quote_df[limit_threshold[1]].astype("bool") | suspended
+            self.quote_df["limit_buy"] = suspended | self.quote_df[limit_threshold[0]].astype("bool")
+            self.quote_df["limit_sell"] = suspended | self.quote_df[limit_threshold[1]].astype("bool") 
         elif limit_type == self.LT_FLT:
             limit_threshold = cast(float, limit_threshold)
-            self.quote_df["limit_buy"] = self.quote_df["$change"].ge(limit_threshold) | suspended
-            self.quote_df["limit_sell"] = (
-                self.quote_df["$change"].le(-limit_threshold) | suspended
-            )  # pylint: disable=E1130
+            self.quote_df["limit_buy"] = self.quote_df["$change"].ge(limit_threshold).replace({True: OrderDir.BUY_LONG.value}) | suspended
+            self.quote_df["limit_buy"] = self.quote_df["$change"].le(-limit_threshold).replace({True: OrderDir.BUY_SHORT.value})  | suspended
+
+            self.quote_df["limit_sell"] = self.quote_df["$change"].ge(limit_threshold).replace({True: OrderDir.SELL_SHORT.value}) | suspended
+            self.quote_df["limit_sell"] = self.quote_df["$change"].le(-limit_threshold).replace({True: OrderDir.SELL_LONG.value}) | suspended
 
     @staticmethod
     def _get_vol_limit(volume_threshold: Union[tuple, dict, None]) -> Tuple[Optional[list], Optional[list], set]:
@@ -351,8 +370,8 @@ class Exchange:
         direction : int, optional
             trade direction, by default None
             - if direction is None, check if tradable for buying and selling.
-            - if direction == Order.BUY, check the if tradable for buying
-            - if direction == Order.SELL, check the sell limit for selling.
+            - if direction == OrderDir.BUY_LONG and OrderDir.BUY_SHORT, check the if tradable for buying
+            - if direction == OrderDir.SELL_LONG and OrderDir.BUY_SHORT, check the sell limit for selling.
 
         Returns
         -------
@@ -365,13 +384,43 @@ class Exchange:
         if direction is None:
             # The trading limitation is related to the trading direction
             # if the direction is not provided, then any limitation from buy or sell will result in trading limitation
-            buy_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_buy", method="all")
-            sell_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_sell", method="all")
-            return bool(buy_limit or sell_limit)
-        elif direction == Order.BUY:
-            return cast(bool, self.quote.get_data(stock_id, start_time, end_time, field="limit_buy", method="all"))
-        elif direction == Order.SELL:
-            return cast(bool, self.quote.get_data(stock_id, start_time, end_time, field="limit_sell", method="all"))
+            buy_limit = self.quote.get_data(
+                stock_id, start_time, end_time, field="limit_buy", method="all"
+            )
+            sell_limit = self.quote.get_data(
+                stock_id, start_time, end_time, field="limit_sell", method="all"
+            )
+            return  (not buy_limit == False) or (not sell_limit == False)
+        elif direction in (OrderDir.BUY_LONG, OrderDir.BUY_SHORT):
+            buy_limit = self.quote.get_data(
+                stock_id, start_time, end_time, field="limit_buy", method="all"
+            )
+            if buy_limit is None:
+                # if no buy limit record exists, then the stock is tradable
+                return False
+            if isinstance(buy_limit, bool):
+                return buy_limit
+            if isinstance(buy_limit, (float, int)):
+                # if buy_limit is float or int, it should be OrderDir.BUY_SHORT.value
+                # or OrderDir.BUY_LONG.value
+                # otherwise, it is not tradable
+                return buy_limit == OrderDir.BUY_SHORT.value or buy_limit == OrderDir.BUY_LONG.value
+            raise NotImplementedError("The type of buy_limit is not supported. It should be bool, float or int")
+        elif direction in (OrderDir.SELL_LONG, OrderDir.SELL_SHORT):
+            sell_limit = self.quote.get_data(
+                stock_id, start_time, end_time, field="limit_sell", method="all"
+            )
+            if sell_limit is None:
+                # if no sell limit record exists, then the stock is tradable
+                return False
+            if isinstance(sell_limit, bool):
+                return sell_limit
+            if isinstance(sell_limit, (float, int)):
+                # if sell_limit is float or int, it should be OrderDir.SELL_SHORT.value
+                # or OrderDir.SELL_LONG.value
+                # otherwise, it is not tradable
+                return sell_limit == OrderDir.SELL_SHORT.value or sell_limit == OrderDir.SELL_LONG.value
+            raise ValueError("The type of sell_limit is not supported. It should be bool, float or int")
         else:
             raise ValueError(f"direction {direction} is not supported!")
 
@@ -499,9 +548,9 @@ class Exchange:
         direction: OrderDir,
         method: Optional[str] = "ts_data_last",
     ) -> Union[None, int, float, bool, IndexData]:
-        if direction == OrderDir.SELL:
+        if direction == OrderDir.SELL_LONG:
             pstr = self.sell_price
-        elif direction == OrderDir.BUY:
+        elif direction == OrderDir.BUY_LONG:
             pstr = self.buy_price
         else:
             raise NotImplementedError(f"This type of input is not supported")
@@ -537,7 +586,7 @@ class Exchange:
         cash: float,
         start_time: pd.Timestamp,
         end_time: pd.Timestamp,
-        direction: OrderDir = OrderDir.BUY,
+        direction: OrderDir = OrderDir.BUY_LONG,
     ) -> dict:
         """
         Generates the target position according to the weight and the cash.
@@ -655,7 +704,7 @@ class Exchange:
                     Order(
                         stock_id=stock_id,
                         amount=deal_amount,
-                        direction=Order.BUY,
+                        direction=Order.BUY_LONG,
                         start_time=start_time,
                         end_time=end_time,
                         factor=factor,
@@ -667,7 +716,7 @@ class Exchange:
                     Order(
                         stock_id=stock_id,
                         amount=abs(deal_amount),
-                        direction=Order.SELL,
+                        direction=OrderDir.SELL_LONG,
                         start_time=start_time,
                         end_time=end_time,
                         factor=factor,
@@ -682,7 +731,7 @@ class Exchange:
         start_time: pd.Timestamp,
         end_time: pd.Timestamp,
         only_tradable: bool = False,
-        direction: OrderDir = OrderDir.SELL,
+        direction: OrderDir = OrderDir.SELL_LONG,
     ) -> float:
         """Parameter
         position : Position()
@@ -795,7 +844,7 @@ class Exchange:
         dealt_order_amount : dict
             :param dealt_order_amount: the dealt order amount dict with the format of {stock_id: float}
         """
-        vol_limit = self.buy_vol_limit if order.direction == Order.BUY else self.sell_vol_limit
+        vol_limit = (self.buy_vol_limit if order.direction == Order.BUY_LONG else self.sell_vol_limit)
 
         if vol_limit is None:
             return order.deal_amount
@@ -891,7 +940,7 @@ class Exchange:
         else:
             adj_cost_ratio = self.impact_cost * (trade_val / total_trade_val) ** 2
 
-        if order.direction == Order.SELL:
+        if order.direction == OrderDir.SELL_LONG:
             cost_ratio = self.close_cost + adj_cost_ratio
             # sell
             # if we don't know current position, we choose to sell all
@@ -915,7 +964,7 @@ class Exchange:
                     order.deal_amount = 0
                     self.logger.debug(f"Order clipped due to cash limitation: {order}")
 
-        elif order.direction == Order.BUY:
+        elif order.direction == Order.BUY_LONG:
             cost_ratio = self.open_cost + adj_cost_ratio
             # buy
             if position is not None:

@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..data.data import D
-from .decision import Order
+from .decision import Order, OrderDir
 
 
 class BasePosition:
@@ -389,10 +389,10 @@ class Position(BasePosition):
 
     def update_order(self, order: Order, trade_val: float, cost: float, trade_price: float) -> None:
         # handle order, order is a order class, defined in exchange.py
-        if order.direction == Order.BUY:
+        if order.direction == Order.BUY_LONG:
             # BUY
             self._buy_stock(order.stock_id, trade_val, cost, trade_price)
-        elif order.direction == Order.SELL:
+        elif order.direction == OrderDir.SELL_LONG:
             # SELL
             self._sell_stock(order.stock_id, trade_val, cost, trade_price)
         else:
@@ -563,3 +563,7 @@ class InfPosition(BasePosition):
 
     def settle_commit(self) -> None:
         pass
+
+
+class FuturePosition(Position):
+    pass

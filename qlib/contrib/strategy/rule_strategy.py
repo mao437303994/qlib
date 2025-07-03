@@ -204,7 +204,7 @@ class SBBStrategyBase(BaseStrategy):
                     _order_amount = (
                         (trade_unit_cnt + trade_len - trade_step - 1) // (trade_len - trade_step) * _amount_trade_unit
                     )
-                if order.direction == order.SELL:
+                if order.direction == order.SELL_LONG:
                     # sell all amount at last
                     if self.trade_amount[order.stock_id] > 1e-5 and (
                         _order_amount < 1e-5 or trade_step == trade_len - 1
@@ -240,7 +240,7 @@ class SBBStrategyBase(BaseStrategy):
                         * 2
                         * _amount_trade_unit
                     )
-                if order.direction == order.SELL:
+                if order.direction == order.SELL_LONG:
                     # sell all amount at last
                     if self.trade_amount[order.stock_id] > 1e-5 and (
                         _order_amount < 1e-5 or trade_step == trade_len - 1
@@ -256,9 +256,9 @@ class SBBStrategyBase(BaseStrategy):
                         # if look long on the price, buy the stock more
                         if (
                             _pred_trend == self.TREND_SHORT
-                            and order.direction == order.SELL
+                            and order.direction == order.SELL_LONG
                             or _pred_trend == self.TREND_LONG
-                            and order.direction == order.BUY
+                            and order.direction == order.BUY_LONG
                         ):
                             _order = Order(
                                 stock_id=order.stock_id,
@@ -274,9 +274,9 @@ class SBBStrategyBase(BaseStrategy):
                         # if look long on the price, sell the stock more
                         if (
                             _pred_trend == self.TREND_SHORT
-                            and order.direction == order.BUY
+                            and order.direction == order.BUY_LONG
                             or _pred_trend == self.TREND_LONG
-                            and order.direction == order.SELL
+                            and order.direction == order.SELL_LONG
                         ):
                             _order = Order(
                                 stock_id=order.stock_id,
@@ -516,7 +516,7 @@ class ACStrategy(BaseStrategy):
                     _order_amount, stock_id=order.stock_id, start_time=order.start_time, end_time=order.end_time
                 )
 
-            if order.direction == order.SELL:
+            if order.direction == order.SELL_LONG:
                 # sell all amount at last
                 if self.trade_amount[order.stock_id] > 1e-5 and (_order_amount < 1e-5 or trade_step == trade_len - 1):
                     _order_amount = self.trade_amount[order.stock_id]
@@ -543,7 +543,7 @@ class RandomOrderStrategy(BaseStrategy):
         sample_ratio: float = 1.0,
         volume_ratio: float = 0.01,
         market: str = "all",
-        direction: int = Order.BUY,
+        direction: int = Order.BUY_LONG,
         *args,
         **kwargs,
     ):

@@ -119,7 +119,7 @@ class FullHistoryStateInterpreter(StateInterpreter[SAOEState, FullHistoryObs]):
                 {
                     "data_processed": np.array(self._mask_future_info(processed.today, state.cur_time)),
                     "data_processed_prev": np.array(processed.yesterday),
-                    "acquiring": _to_int32(state.order.direction == state.order.BUY),
+                    "acquiring": _to_int32(state.order.direction == state.order.BUY_LONG),
                     "cur_tick": _to_int32(min(int(np.sum(state.ticks_index < state.cur_time)), self.data_ticks - 1)),
                     "cur_step": _to_int32(min(state.cur_step, self.max_step - 1)),
                     "num_step": _to_int32(self.max_step),
@@ -187,7 +187,7 @@ class CurrentStepStateInterpreter(StateInterpreter[SAOEState, CurrentStateObs]):
     def interpret(self, state: SAOEState) -> CurrentStateObs:
         assert state.cur_step <= self.max_step
         obs = CurrentStateObs(
-            acquiring=state.order.direction == state.order.BUY,
+            acquiring=state.order.direction == state.order.BUY_LONG,
             cur_step=state.cur_step,
             num_step=self.max_step,
             target=state.order.amount,
