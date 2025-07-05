@@ -23,7 +23,7 @@ from ..config import C
 from ..constant import REG_CN, REG_TW
 from ..data.data import D
 from ..log import get_module_logger
-from .decision import Order, OrderDir, OrderHelper
+from .decision import Order, OrderDir, OrderDirWrapper, OrderHelper
 from .high_performance_ds import BaseQuote, NumpyQuote
 
 
@@ -293,22 +293,50 @@ class Exchange:
         suspended = self.quote_df["$close"].isna()
         # check limit_threshold
         limit_type = self._get_limit_type(limit_threshold)
+        
+        # 创建结果 Series（初始为空）
+        limit_buy = pd.Series(False, index=suspended.index, dtype='object')
+        limit_sell = pd.Series(False, index=suspended.index, dtype='object')
+
         if limit_type == self.LT_NONE:
-            self.quote_df["limit_buy"] = suspended
-            self.quote_df["limit_sell"] = suspended
+            # 停牌时限制全部交易
+            limit_buy[suspended] = True
+            limit_sell[suspended] = True
+        
         elif limit_type == self.LT_TP_EXP:
             # set limit
-            limit_threshold = cast(tuple, limit_threshold)
+            limit_buy_threshold, limit_sell_threshold = cast(tuple, limit_threshold)
             # astype bool is necessary, because quote_df is an expression and could be float
-            self.quote_df["limit_buy"] = suspended | self.quote_df[limit_threshold[0]].astype("bool")
-            self.quote_df["limit_sell"] = suspended | self.quote_df[limit_threshold[1]].astype("bool") 
+            buy_limit = self.quote_df[limit_buy_threshold].astype("bool") | suspended
+            sell_limit = self.quote_df[limit_sell_threshold].astype("bool") | suspended
+
+            limit_buy[buy_limit] = True
+            limit_sell[sell_limit] = True
+            
         elif limit_type == self.LT_FLT:
             limit_threshold = cast(float, limit_threshold)
-            self.quote_df["limit_buy"] = self.quote_df["$change"].ge(limit_threshold).replace({True: OrderDir.BUY_LONG.value}) | suspended
-            self.quote_df["limit_buy"] = self.quote_df["$change"].le(-limit_threshold).replace({True: OrderDir.BUY_SHORT.value})  | suspended
+            
+            # 向量化操作，避免循环
+            # 先处理停牌
+            limit_buy[suspended] = True
+            limit_sell[suspended] = True
+            
+            # 计算非停牌股票的涨跌停限制
+            not_suspended = ~suspended
+            
+            # 涨停限制
+            up_limit = not_suspended & (self.quote_df["$change"] >= limit_threshold)
+            limit_buy.loc[up_limit] = OrderDirWrapper(OrderDir.BUY_LONG)
+            limit_sell.loc[up_limit] = OrderDirWrapper(OrderDir.SELL_SHORT)
 
-            self.quote_df["limit_sell"] = self.quote_df["$change"].ge(limit_threshold).replace({True: OrderDir.SELL_SHORT.value}) | suspended
-            self.quote_df["limit_sell"] = self.quote_df["$change"].le(-limit_threshold).replace({True: OrderDir.SELL_LONG.value}) | suspended
+            # 跌停限制
+            down_limit = not_suspended & (self.quote_df["$change"] <= -limit_threshold)
+            limit_buy.loc[down_limit] = OrderDirWrapper(OrderDir.BUY_SHORT)
+            limit_sell.loc[down_limit] = OrderDirWrapper(OrderDir.SELL_LONG)
+
+        # 转换为object类型以保存混合类型
+        self.quote_df["limit_buy"] = limit_buy
+        self.quote_df["limit_sell"] = limit_sell
 
     @staticmethod
     def _get_vol_limit(volume_threshold: Union[tuple, dict, None]) -> Tuple[Optional[list], Optional[list], set]:
@@ -382,47 +410,26 @@ class Exchange:
         # **all** is used when checking limitation.
         # For example, the stock trading is limited in a day if every minute is limited in a day if every minute is limited.
         if direction is None:
-            # The trading limitation is related to the trading direction
-            # if the direction is not provided, then any limitation from buy or sell will result in trading limitation
-            buy_limit = self.quote.get_data(
-                stock_id, start_time, end_time, field="limit_buy", method="all"
-            )
-            sell_limit = self.quote.get_data(
-                stock_id, start_time, end_time, field="limit_sell", method="all"
-            )
-            return  (not buy_limit == False) or (not sell_limit == False)
+            # 不指定方向，只要有任何限制就返回True
+            buy_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_buy", method="all")
+            sell_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_sell", method="all")
+            return isinstance(buy_limit, OrderDirWrapper) or isinstance(sell_limit, OrderDirWrapper) or bool(buy_limit or sell_limit) 
+        
         elif direction in (OrderDir.BUY_LONG, OrderDir.BUY_SHORT):
-            buy_limit = self.quote.get_data(
-                stock_id, start_time, end_time, field="limit_buy", method="all"
-            )
-            if buy_limit is None:
-                # if no buy limit record exists, then the stock is tradable
-                return False
-            if isinstance(buy_limit, bool):
-                return buy_limit
-            if isinstance(buy_limit, (float, int)):
-                # if buy_limit is float or int, it should be OrderDir.BUY_SHORT.value
-                # or OrderDir.BUY_LONG.value
-                # otherwise, it is not tradable
-                return buy_limit == OrderDir.BUY_SHORT.value or buy_limit == OrderDir.BUY_LONG.value
-            raise NotImplementedError("The type of buy_limit is not supported. It should be bool, float or int")
-        elif direction in (OrderDir.SELL_LONG, OrderDir.SELL_SHORT):
-            sell_limit = self.quote.get_data(
-                stock_id, start_time, end_time, field="limit_sell", method="all"
-            )
-            if sell_limit is None:
-                # if no sell limit record exists, then the stock is tradable
-                return False
-            if isinstance(sell_limit, bool):
-                return sell_limit
-            if isinstance(sell_limit, (float, int)):
-                # if sell_limit is float or int, it should be OrderDir.SELL_SHORT.value
-                # or OrderDir.SELL_LONG.value
-                # otherwise, it is not tradable
-                return sell_limit == OrderDir.SELL_SHORT.value or sell_limit == OrderDir.SELL_LONG.value
-            raise ValueError("The type of sell_limit is not supported. It should be bool, float or int")
-        else:
-            raise ValueError(f"direction {direction} is not supported!")
+            # 买入方向
+            buy_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_buy", method="all")
+            if isinstance(buy_limit, OrderDirWrapper):
+                return buy_limit.order_dir == direction
+            return cast(bool, buy_limit)
+        
+        elif  direction in (OrderDir.SELL_LONG, OrderDir.SELL_SHORT):
+            # 卖出方向
+            sell_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_sell", method="all")
+            if isinstance(sell_limit, OrderDirWrapper):
+                return sell_limit.order_dir == direction
+            return cast(bool, sell_limit)
+
+        raise ValueError(f"direction {direction} is not supported!")
 
     def check_stock_suspended(
         self,

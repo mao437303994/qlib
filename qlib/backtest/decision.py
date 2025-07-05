@@ -34,6 +34,21 @@ class OrderDir(IntEnum):
     BUY_SHORT = 1
     BUY_LONG = 2
 
+class OrderDirWrapper:
+    """
+    A wrapper for OrderDir to make it compatible with pandas.Series
+    """
+
+    @property
+    def order_dir(self) -> OrderDir:
+        """
+        Return the OrderDir value.
+        This is used to make it compatible with pandas.Series.
+        """
+        return self._order_dir
+
+    def __init__(self, order_dir: OrderDir) -> None:
+        self._order_dir = order_dir
 
 @dataclass
 class Order:
