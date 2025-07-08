@@ -28,14 +28,24 @@ DecisionType = TypeVar("DecisionType")
 
 
 class OrderDir(IntEnum):
-    # Order direction
-    SELL = 0
-    BUY = 1
+    # Legacy compatibility (保持原有值不变)
+    SELL = 0          # 传统卖出/平仓
+    BUY = 1           # 传统买入/开仓
+    
+    # Enhanced closing operations (平仓操作，使用小于10的值)
+    SELL_LONG = 2     # 平多仓位
+    BUY_SHORT = 3     # 平空仓位
+    
+    # Enhanced opening operations (开仓操作，使用10+的值)
+    BUY_LONG = 10     # 开多仓位
+    SELL_SHORT = 11   # 开空仓位
 
 
 @dataclass
 class Order:
     """
+    Enhanced Order class for leveraged trading
+    
     stock_id : str
     amount : float
     start_time : pd.Timestamp
@@ -43,25 +53,29 @@ class Order:
     end_time : pd.Timestamp
         closed end time for order trading
     direction : int
-        Order.SELL for sell; Order.BUY for buy
-    factor : float
-            presents the weight factor assigned in Exchange()
+        OrderDir.SELL_SHORT/BUY_SHORT for short; OrderDir.BUY_LONG/SELL_LONG for long
+        OrderDir.SELL/BUY for legacy compatibility
+    leverage : float
+        leverage multiplier (default 1.0 for no leverage)
     """
 
-    # 1) time invariant values
+    # 1) time invariant values (required fields)
     # - they are set by users and is time-invariant.
     stock_id: str
     amount: float  # `amount` is a non-negative and adjusted value
     direction: OrderDir
-
-    # 2) time variant values:
+    
+    # 2) time variant values (required fields):
     # - Users may want to set these values when using lower level APIs
     # - If users don't, TradeDecisionWO will help users to set them
     # The interval of the order which belongs to (NOTE: this is not the expected order dealing range time)
     start_time: pd.Timestamp
     end_time: pd.Timestamp
 
-    # 3) results
+    # 3) fields with default values must come after fields without defaults
+    leverage: float = 1.0  # 杠杆倍数
+
+    # 4) results
     # - users should not care about these values
     # - they are set by the backtest system after finishing the results.
     # What the value should be about in all kinds of cases
@@ -77,56 +91,138 @@ class Order:
     # FIXME:
     # for compatible now.
     # Please remove them in the future
+    SELL_LONG: ClassVar[OrderDir] = OrderDir.SELL_LONG
+    SELL_SHORT: ClassVar[OrderDir] = OrderDir.SELL_SHORT
+    BUY_SHORT: ClassVar[OrderDir] = OrderDir.BUY_SHORT
+    BUY_LONG: ClassVar[OrderDir] = OrderDir.BUY_LONG
     SELL: ClassVar[OrderDir] = OrderDir.SELL
     BUY: ClassVar[OrderDir] = OrderDir.BUY
 
     def __post_init__(self) -> None:
-        if self.direction not in {Order.SELL, Order.BUY}:
-            raise NotImplementedError("direction not supported, `Order.SELL` for sell, `Order.BUY` for buy")
+        # Support both legacy and new direction types
+        valid_directions = {
+            OrderDir.SELL, OrderDir.BUY,  # Legacy
+            OrderDir.SELL_LONG, OrderDir.SELL_SHORT, 
+            OrderDir.BUY_SHORT, OrderDir.BUY_LONG  # New leveraged directions
+        }
+        if self.direction not in valid_directions:
+            raise NotImplementedError(f"direction {self.direction} not supported")
+        
         self.deal_amount = 0.0
         self.factor = None
+        
+        # Validate leverage
+        if self.leverage <= 0:
+            raise ValueError("leverage must be positive")
 
     @property
     def amount_delta(self) -> float:
         """
-        return the delta of amount.
-        - Positive value indicates buying `amount` of share
-        - Negative value indicates selling `amount` of share
+        return the delta of amount considering leverage.
+        - Positive value indicates net long position increase
+        - Negative value indicates net long position decrease
         """
-        return self.amount * self.sign
+        return self.amount * self.sign * self.leverage
 
     @property
     def deal_amount_delta(self) -> float:
         """
-        return the delta of deal_amount.
-        - Positive value indicates buying `deal_amount` of share
-        - Negative value indicates selling `deal_amount` of share
+        return the delta of deal_amount considering leverage.
+        - Positive value indicates net long position increase
+        - Negative value indicates net long position decrease
         """
-        return self.deal_amount * self.sign
+        return self.deal_amount * self.sign * self.leverage
 
     @property
     def sign(self) -> int:
         """
-        return the sign of trading
-        - `+1` indicates buying
-        - `-1` value indicates selling
+        return the sign of trading for net position change
+        - `+1` indicates net long position increase
+        - `-1` indicates net long position decrease
+        
+        注意：这里的sign是为了与qlib的report.py指标计算兼容
         """
-        return self.direction * 2 - 1
+        if self.direction == OrderDir.BUY_LONG:
+            return 1   # 开多仓：增加多头净持仓
+        elif self.direction == OrderDir.SELL_LONG:
+            return -1  # 平多仓：减少多头净持仓
+        elif self.direction == OrderDir.SELL_SHORT:
+            return -1  # 开空仓：减少多头净持仓(增加空头净持仓)
+        elif self.direction == OrderDir.BUY_SHORT:
+            return 1   # 平空仓：增加多头净持仓(减少空头净持仓)
+        else:
+            # Legacy compatibility: BUY=1, SELL=0
+            return self.direction * 2 - 1
+
+    @property
+    def is_long_direction(self) -> bool:
+        """Check if this is a long position related order (包括原有的BUY/SELL)"""
+        return self.direction in (
+            OrderDir.BUY_LONG, OrderDir.SELL_LONG,  # 明确的多头操作
+            OrderDir.BUY, OrderDir.SELL              # 原有操作(默认为做多)
+        )
+    
+    @property
+    def is_short_direction(self) -> bool:
+        """Check if this is a short position related order"""
+        return self.direction in (OrderDir.BUY_SHORT, OrderDir.SELL_SHORT)
+    
+    @property
+    def is_opening_position(self) -> bool:
+        """Check if this order opens a new position"""
+        return self.direction in (
+            OrderDir.BUY_LONG, OrderDir.SELL_SHORT,  # 开多仓/开空仓
+            OrderDir.BUY                             # 原有买入(开多仓)
+        )
+    
+    @property
+    def is_closing_position(self) -> bool:
+        """Check if this order closes an existing position"""
+        return self.direction in (
+            OrderDir.SELL_LONG, OrderDir.BUY_SHORT,  # 平多仓/平空仓
+            OrderDir.SELL                            # 原有卖出(平多仓)
+        )
+
+    @property
+    def required_margin(self) -> float:
+        """
+        Calculate required margin for this order
+        保证金 = 交易金额 × 保证金率 = 数量 × 价格 × (1/杠杆倍数)
+        
+        注意：这里只计算基于数量的保证金率，实际保证金需要乘以价格
+        """
+        margin_rate = 1.0 / self.leverage
+        return self.amount * margin_rate
+    
+    @property 
+    def effective_leverage(self) -> float:
+        """获取有效杠杆倍数"""
+        return self.leverage
+    
+    @property
+    def margin_rate(self) -> float:
+        """获取保证金率（根据杠杆倍数自动计算）"""
+        return 1.0 / self.leverage
 
     @staticmethod
     def parse_dir(direction: Union[str, int, np.integer, OrderDir, np.ndarray]) -> Union[OrderDir, np.ndarray]:
         if isinstance(direction, OrderDir):
             return direction
         elif isinstance(direction, (int, float, np.integer, np.floating)):
+            # 为了向后兼容，正数仍然映射到BUY，负数映射到SELL
             return Order.BUY if direction > 0 else Order.SELL
         elif isinstance(direction, str):
             dl = direction.lower().strip()
-            if dl == "sell":
-                return OrderDir.SELL
-            elif dl == "buy":
-                return OrderDir.BUY
+            if dl in ("sell", "sell_long"):
+                return OrderDir.SELL_LONG if dl == "sell_long" else OrderDir.SELL
+            elif dl in ("buy", "buy_long"):
+                return OrderDir.BUY_LONG if dl == "buy_long" else OrderDir.BUY
+            elif dl == "sell_short":
+                return OrderDir.SELL_SHORT
+            elif dl == "buy_short":
+                return OrderDir.BUY_SHORT
             else:
-                raise NotImplementedError(f"This type of input is not supported")
+                raise NotImplementedError(f"Direction '{direction}' is not supported")
         elif isinstance(direction, np.ndarray):
             direction_array = direction.copy()
             direction_array[direction_array > 0] = Order.BUY
@@ -169,11 +265,10 @@ class OrderHelper:
         direction: OrderDir,
         start_time: Union[str, pd.Timestamp] = None,
         end_time: Union[str, pd.Timestamp] = None,
+        leverage: float = 1.0,
     ) -> Order:
         """
-        help to create a order
-
-        # TODO: create order for unadjusted amount order
+        help to create a leveraged order
 
         Parameters
         ----------
@@ -182,16 +277,18 @@ class OrderHelper:
         amount : float
             **adjusted trading amount**
         direction : OrderDir
-            trading  direction
+            trading direction (supports both legacy and new leveraged directions)
         start_time : Union[str, pd.Timestamp] (optional)
             The interval of the order which belongs to
         end_time : Union[str, pd.Timestamp] (optional)
             The interval of the order which belongs to
+        leverage : float (optional)
+            leverage multiplier, default 1.0 (no leverage)
 
         Returns
         -------
         Order:
-            The created order
+            The created leveraged order
         """
         # NOTE: factor is a value belongs to the results section. User don't have to care about it when creating orders
         return Order(
@@ -200,6 +297,7 @@ class OrderHelper:
             start_time=None if start_time is None else pd.Timestamp(start_time),
             end_time=None if end_time is None else pd.Timestamp(end_time),
             direction=direction,
+            leverage=leverage,
         )
 
 

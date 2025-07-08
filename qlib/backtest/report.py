@@ -529,7 +529,26 @@ class Indicator:
         if not if_empty:
 
             def func(trade_dir, trade_price, base_price):
-                sign = 1 - trade_dir * 2
+                # 修复多空分离方向的价格优势计算
+                # 价格优势的计算应该基于实际的买卖行为，而不是持仓方向
+                def get_price_advantage_sign(direction):
+                    if isinstance(direction, (int, float)):
+                        # 根据实际的买卖行为来确定价格优势符号
+                        # 平仓/卖出行为: SELL(0), SELL_LONG(2), BUY_SHORT(3)
+                        # 开仓/买入行为: BUY(1), BUY_LONG(10), SELL_SHORT(11)
+                        if direction in (0, 2, 3):  # 平仓/卖出行为
+                            return 1   # 卖出：价格越高越好
+                        else:  # 开仓/买入行为
+                            return -1  # 买入：价格越低越好
+                    else:
+                        return 1
+                
+                # 应用到每个方向
+                if hasattr(trade_dir, 'apply'):
+                    sign = trade_dir.apply(get_price_advantage_sign)
+                else:
+                    sign = get_price_advantage_sign(trade_dir)
+                
                 return sign * (trade_price / base_price - 1)
 
             self.order_indicator.transfer(func, "pa")

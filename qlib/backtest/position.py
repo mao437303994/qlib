@@ -389,12 +389,18 @@ class Position(BasePosition):
 
     def update_order(self, order: Order, trade_val: float, cost: float, trade_price: float) -> None:
         # handle order, order is a order class, defined in exchange.py
-        if order.direction == Order.BUY:
-            # BUY
+        if order.direction in [Order.BUY, Order.BUY_LONG]:
+            # BUY or BUY_LONG (开多仓)
             self._buy_stock(order.stock_id, trade_val, cost, trade_price)
-        elif order.direction == Order.SELL:
-            # SELL
+        elif order.direction in [Order.SELL, Order.SELL_LONG]:
+            # SELL or SELL_LONG (平多仓)
             self._sell_stock(order.stock_id, trade_val, cost, trade_price)
+        elif order.direction == Order.SELL_SHORT:
+            # SELL_SHORT (开空仓) - 相当于"卖出"股票建立空头仓位
+            self._sell_stock_allow_short(order.stock_id, trade_val, cost, trade_price)
+        elif order.direction == Order.BUY_SHORT:
+            # BUY_SHORT (平空仓) - 相当于"买入"股票平掉空头仓位
+            self._buy_stock_cover_short(order.stock_id, trade_val, cost, trade_price)
         else:
             raise NotImplementedError("do not support order direction {}".format(order.direction))
 
@@ -499,67 +505,289 @@ class Position(BasePosition):
                 raise NotImplementedError(f"This type of input is not supported")
             self._settle_type = self.ST_NO
 
+    def _sell_stock_allow_short(self, stock_id: str, trade_val: float, cost: float, trade_price: float) -> None:
+        """
+        开空仓：允许将持仓变为负值
+        """
+        trade_amount = trade_val / trade_price
+        if stock_id not in self.position:
+            # 初始化空头仓位 (负持仓)
+            self._init_stock(stock_id=stock_id, amount=-trade_amount, price=trade_price)
+        else:
+            # 减少持仓数量 (可能变为负值)
+            self.position[stock_id]["amount"] -= trade_amount
 
-class InfPosition(BasePosition):
-    """
-    Position with infinite cash and amount.
+        # 卖空获得现金
+        new_cash = trade_val - cost
+        if self._settle_type == self.ST_CASH:
+            self.position["cash_delay"] += new_cash
+        elif self._settle_type == self.ST_NO:
+            self.position["cash"] += new_cash
+        else:
+            raise NotImplementedError(f"This type of input is not supported")
 
-    This is useful for generating random orders.
+    def _buy_stock_cover_short(self, stock_id: str, trade_val: float, cost: float, trade_price: float) -> None:
+        """
+        平空仓：买入股票平掉空头仓位
+        """
+        trade_amount = trade_val / trade_price
+        if stock_id not in self.position:
+            raise KeyError("{} not in current position".format(stock_id))
+        else:
+            # 增加持仓数量 (从负值向零或正值移动)
+            self.position[stock_id]["amount"] += trade_amount
+            
+            # 检查是否完全平仓
+            if np.isclose(self.position[stock_id]["amount"], 0, atol=1e-5):
+                self._del_stock(stock_id)
+
+        # 买入需要支付现金
+        self.position["cash"] -= trade_val + cost
+
+
+class LeveragedPosition(BasePosition):
     """
+    杠杆交易仓位类，支持期货、加密货币等多种资产的做多做空和杠杆交易
+    
+    特性：
+    - 支持做多/做空
+    - 支持杠杆交易（资金放大）
+    - 分别跟踪多头和空头仓位
+    - 实时计算未实现盈亏
+    - 适用于期货、加密货币、差价合约等
+    """
+    
+    def __init__(self, cash: float = 0, position_dict: Dict[str, Union[Dict[str, float], float]] = None, 
+                 default_leverage: float = 1.0) -> None:
+        """
+        初始化杠杆仓位
+        
+        Parameters
+        ----------
+        cash : float
+            初始现金
+        position_dict : Dict
+            初始仓位字典
+        default_leverage : float
+            默认杠杆倍数
+        """
+        super().__init__()
+        self.init_cash = cash
+        self.default_leverage = default_leverage
+        self.position = {}
+        
+        # 初始化现金和统计
+        self.position['cash'] = cash
+        self.position['total_margin'] = 0.0
+        self.position['total_equity'] = cash
+        
+        # 初始化仓位
+        if position_dict:
+            for stock, value in position_dict.items():
+                if isinstance(value, dict):
+                    # 详细仓位信息
+                    self._init_leveraged_stock(
+                        stock_id=stock,
+                        long_amount=value.get('long_amount', 0.0),
+                        short_amount=value.get('short_amount', 0.0),
+                        leverage=value.get('leverage', default_leverage)
+                    )
+                else:
+                    # 简单数量格式
+                    amount = float(value)
+                    if amount > 0:
+                        self._init_leveraged_stock(stock_id=stock, long_amount=amount)
+                    elif amount < 0:
+                        self._init_leveraged_stock(stock_id=stock, short_amount=abs(amount))
+
+    def _init_leveraged_stock(self, stock_id: str, long_amount: float = 0.0, short_amount: float = 0.0, 
+                            leverage: float = None) -> None:
+        """初始化杠杆股票仓位"""
+        if leverage is None:
+            leverage = self.default_leverage
+            
+        self.position[stock_id] = {
+            'long_amount': long_amount,
+            'short_amount': short_amount,
+            'net_amount': long_amount - short_amount,
+            'leverage': leverage,
+            'unrealized_pnl': 0.0,
+            'realized_pnl': 0.0,
+            'total_cost': 0.0,
+            'margin_used': 0.0,
+            'weight': 0.0,
+            'count': 0,
+            'price': 0.0,
+        }
 
     def skip_update(self) -> bool:
-        """Updating state is meaningless for InfPosition"""
-        return True
+        return False
 
     def check_stock(self, stock_id: str) -> bool:
-        # InfPosition always have any stocks
-        return True
+        return stock_id in self.position
 
     def update_order(self, order: Order, trade_val: float, cost: float, trade_price: float) -> None:
-        pass
+        """更新杠杆订单"""
+        # 基本的杠杆订单处理，可以根据需要扩展
+        stock_id = order.stock_id
+        
+        if stock_id not in self.position:
+            self._init_leveraged_stock(stock_id, leverage=getattr(order, 'leverage', self.default_leverage))
+        
+        if order.direction in [Order.BUY_LONG, Order.BUY]:
+            self._update_long_position(stock_id, trade_val, cost, trade_price, True)
+        elif order.direction in [Order.SELL_LONG, Order.SELL]:
+            self._update_long_position(stock_id, trade_val, cost, trade_price, False)
+        elif order.direction == Order.SELL_SHORT:
+            self._update_short_position(stock_id, trade_val, cost, trade_price, True)
+        elif order.direction == Order.BUY_SHORT:
+            self._update_short_position(stock_id, trade_val, cost, trade_price, False)
+
+    def _update_long_position(self, stock_id: str, trade_val: float, cost: float, trade_price: float, is_open: bool) -> None:
+        """更新多头仓位"""
+        trade_amount = trade_val / trade_price
+        stock_pos = self.position[stock_id]
+        
+        if is_open:  # 开多仓
+            stock_pos['long_amount'] += trade_amount
+            self.position['cash'] -= trade_val + cost
+        else:  # 平多仓
+            stock_pos['long_amount'] -= trade_amount
+            self.position['cash'] += trade_val - cost
+            
+        stock_pos['net_amount'] = stock_pos['long_amount'] - stock_pos['short_amount']
+        stock_pos['price'] = trade_price
+        stock_pos['total_cost'] += cost
+
+    def _update_short_position(self, stock_id: str, trade_val: float, cost: float, trade_price: float, is_open: bool) -> None:
+        """更新空头仓位"""
+        trade_amount = trade_val / trade_price
+        stock_pos = self.position[stock_id]
+        
+        if is_open:  # 开空仓
+            stock_pos['short_amount'] += trade_amount
+            self.position['cash'] += trade_val - cost
+        else:  # 平空仓
+            stock_pos['short_amount'] -= trade_amount
+            self.position['cash'] -= trade_val + cost
+            
+        stock_pos['net_amount'] = stock_pos['long_amount'] - stock_pos['short_amount']
+        stock_pos['price'] = trade_price
+        stock_pos['total_cost'] += cost
 
     def update_stock_price(self, stock_id: str, price: float) -> None:
-        pass
+        if stock_id in self.position:
+            self.position[stock_id]['price'] = price
 
     def calculate_stock_value(self) -> float:
-        """
-        Returns
-        -------
-        float:
-            infinity stock value
-        """
-        return np.inf
+        """计算股票价值（净仓位价值）"""
+        value = 0
+        for stock_id, pos_data in self.position.items():
+            if stock_id not in ['cash', 'total_margin', 'total_equity']:
+                net_amount = pos_data['net_amount']
+                price = pos_data['price']
+                value += net_amount * price
+        return value
 
     def calculate_value(self) -> float:
-        raise NotImplementedError(f"InfPosition doesn't support calculating value")
+        """计算总价值"""
+        return self.calculate_stock_value() + self.position['cash']
 
     def get_stock_list(self) -> List[str]:
-        raise NotImplementedError(f"InfPosition doesn't support stock list position")
+        return [k for k in self.position.keys() if k not in ['cash', 'total_margin', 'total_equity']]
 
     def get_stock_price(self, code: str) -> float:
-        """the price of the inf position is meaningless"""
-        return np.nan
+        return self.position[code]['price'] if code in self.position else 0.0
 
     def get_stock_amount(self, code: str) -> float:
-        return np.inf
+        """返回净仓位（多头-空头）"""
+        return self.position[code]['net_amount'] if code in self.position else 0.0
 
     def get_cash(self, include_settle: bool = False) -> float:
-        return np.inf
+        return self.position['cash']
 
     def get_stock_amount_dict(self) -> dict:
-        raise NotImplementedError(f"InfPosition doesn't support get_stock_amount_dict")
+        """生成股票数量字典"""
+        d = {}
+        for stock_id in self.get_stock_list():
+            d[stock_id] = self.get_stock_amount(stock_id)
+        return d
 
     def get_stock_weight_dict(self, only_stock: bool = False) -> dict:
-        raise NotImplementedError(f"InfPosition doesn't support get_stock_weight_dict")
+        """生成股票权重字典"""
+        if only_stock:
+            total_value = self.calculate_stock_value()
+        else:
+            total_value = self.calculate_value()
+            
+        if total_value == 0:
+            return {}
+            
+        d = {}
+        for stock_id in self.get_stock_list():
+            net_amount = self.position[stock_id]['net_amount']
+            price = self.position[stock_id]['price']
+            d[stock_id] = (net_amount * price) / total_value
+        return d
 
     def add_count_all(self, bar: str) -> None:
-        raise NotImplementedError(f"InfPosition doesn't support add_count_all")
+        """增加持有时间计数"""
+        for stock_id in self.get_stock_list():
+            self.position[stock_id]['count'] += 1
 
     def update_weight_all(self) -> None:
-        raise NotImplementedError(f"InfPosition doesn't support update_weight_all")
+        """更新所有权重"""
+        weights = self.get_stock_weight_dict()
+        for stock_id, weight in weights.items():
+            self.position[stock_id]['weight'] = weight
 
     def settle_start(self, settle_type: str) -> None:
+        """开始结算"""
         pass
 
     def settle_commit(self) -> None:
+        """提交结算"""
         pass
+
+    # 杠杆相关方法
+    def get_total_margin(self) -> float:
+        """获取总保证金"""
+        return self.position.get('total_margin', 0.0)
+
+    def get_total_unrealized_pnl(self) -> float:
+        """获取总未实现盈亏"""
+        total_pnl = 0.0
+        for stock_id in self.get_stock_list():
+            total_pnl += self.position[stock_id].get('unrealized_pnl', 0.0)
+        return total_pnl
+
+    def get_total_realized_pnl(self) -> float:
+        """获取总已实现盈亏"""
+        total_pnl = 0.0
+        for stock_id in self.get_stock_list():
+            total_pnl += self.position[stock_id].get('realized_pnl', 0.0)
+        return total_pnl
+
+    @property
+    def long_positions(self) -> dict:
+        """获取多头仓位"""
+        return {k: v for k, v in self.position.items() 
+                if k not in ['cash', 'total_margin', 'total_equity'] and v.get('long_amount', 0) > 0}
+
+    @property
+    def short_positions(self) -> dict:
+        """获取空头仓位"""
+        return {k: v for k, v in self.position.items() 
+                if k not in ['cash', 'total_margin', 'total_equity'] and v.get('short_amount', 0) > 0}
+
+    def get_available_cash(self) -> float:
+        """获取可用现金"""
+        return max(0, self.position['cash'] - self.get_total_margin())
+
+    def get_leverage_ratio(self) -> float:
+        """获取当前杠杆比率"""
+        equity = self.calculate_value()
+        if equity <= 0:
+            return 0.0
+        total_position_value = abs(self.calculate_stock_value())
+        return total_position_value / equity if equity > 0 else 0.0

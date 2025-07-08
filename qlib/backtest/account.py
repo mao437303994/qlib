@@ -9,10 +9,14 @@ import pandas as pd
 
 from qlib.utils import init_instance_by_config
 
-from .decision import BaseTradeDecision, Order
+from .decision import BaseTradeDecision, Order, OrderDir
 from .exchange import Exchange
 from .high_performance_ds import BaseOrderIndicator
 from .position import BasePosition
+try:
+    from .position import LeveragedPosition
+except ImportError:
+    LeveragedPosition = None
 from .report import Indicator, PortfolioMetrics
 
 """
@@ -189,16 +193,28 @@ class Account:
 
             # update return from order
             trade_amount = trade_val / trade_price
-            if order.direction == Order.SELL:  # 0 for sell
+            
+            # 支持新的杠杆多空订单方向
+            if order.direction in [OrderDir.SELL, OrderDir.SELL_LONG]:  # 平多仓或卖出
                 # when sell stock, get profit from price change
                 profit = trade_val - self.current_position.get_stock_price(order.stock_id) * trade_amount
                 self.accum_info.add_return_value(profit)  # note here do not consider cost
 
-            elif order.direction == Order.BUY:  # 1 for buy
+            elif order.direction in [OrderDir.BUY, OrderDir.BUY_LONG]:  # 开多仓或买入
                 # when buy stock, we get return for the rtn computing method
                 # profit in buy order is to make rtn is consistent with earning at the end of bar
                 profit = self.current_position.get_stock_price(order.stock_id) * trade_amount - trade_val
                 self.accum_info.add_return_value(profit)  # note here do not consider cost
+                
+            elif order.direction == OrderDir.SELL_SHORT:  # 开空仓
+                # 开空仓时，类似买入操作，但收入来自借入股票卖出
+                profit = self.current_position.get_stock_price(order.stock_id) * trade_amount - trade_val
+                self.accum_info.add_return_value(profit)  # 开空仓的即时利润
+                
+            elif order.direction == OrderDir.BUY_SHORT:  # 平空仓  
+                # 平空仓时，类似卖出操作，收益来自买回股票
+                profit = trade_val - self.current_position.get_stock_price(order.stock_id) * trade_amount
+                self.accum_info.add_return_value(profit)  # 平空仓的利润
 
     def update_order(self, order: Order, trade_val: float, cost: float, trade_price: float) -> None:
         if self.current_position.skip_update():
@@ -206,19 +222,14 @@ class Account:
             # updating order for infinite position is meaningless
             return
 
-        # if stock is sold out, no stock price information in Position, then we should update account first,
-        # then update current position
-        # if stock is bought, there is no stock in current position, update current, then update account
-        # The cost will be subtracted from the cash at last. So the trading logic can ignore the cost calculation
-        if order.direction == Order.SELL:
-            # sell stock
+        # 支持杠杆多空订单的处理逻辑
+        # 根据订单方向决定处理顺序
+        if order.direction in [OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.SELL_SHORT]:
+            # 卖出类订单：先更新账户状态，再更新持仓
             self._update_state_from_order(order, trade_val, cost, trade_price)
-            # update current position
-            # for may sell all of stock_id
             self.current_position.update_order(order, trade_val, cost, trade_price)
         else:
-            # buy stock
-            # deal order, then update state
+            # 买入类订单：先更新持仓，再更新账户状态
             self.current_position.update_order(order, trade_val, cost, trade_price)
             self._update_state_from_order(order, trade_val, cost, trade_price)
 
@@ -401,6 +412,82 @@ class Account:
             decision_list=decision_list,
             indicator_config=indicator_config,
         )
+
+    @classmethod
+    def create_leveraged_account(
+        cls,
+        init_cash: float = 1e9,
+        position_dict: dict = {},
+        freq: str = "day", 
+        benchmark_config: dict = {},
+        port_metr_enabled: bool = True,
+        default_leverage: float = 1.0,
+    ) -> "Account":
+        """
+        创建支持杠杆交易的账户实例
+        
+        Parameters
+        ----------
+        init_cash : float
+            初始现金
+        position_dict : dict
+            初始持仓字典
+        freq : str
+            频率
+        benchmark_config : dict
+            基准配置
+        port_metr_enabled : bool
+            是否启用组合指标
+        default_leverage : float
+            默认杠杆倍数
+            
+        Returns
+        -------
+        Account
+            配置了杠杆持仓的账户实例
+        """
+        account = cls(
+            init_cash=init_cash,
+            position_dict=position_dict,
+            freq=freq,
+            benchmark_config=benchmark_config,
+            pos_type="LeveragedPosition",
+            port_metr_enabled=port_metr_enabled,
+        )
+        
+        # 如果使用杠杆持仓，设置默认参数
+        if LeveragedPosition is not None and isinstance(account.current_position, LeveragedPosition):
+            account.current_position.default_leverage = default_leverage
+            
+        return account
+
+    def get_position_summary(self) -> dict:
+        """
+        获取持仓摘要信息，特别适用于杠杆持仓
+        
+        Returns
+        -------
+        dict
+            持仓摘要信息
+        """
+        summary = {
+            "total_value": self.current_position.calculate_value(),
+            "cash": self.current_position.get_cash(),
+            "stock_value": self.current_position.calculate_stock_value(),
+        }
+        
+        # 如果是杠杆持仓，添加杠杆相关信息
+        if LeveragedPosition is not None and isinstance(self.current_position, LeveragedPosition):
+            summary.update({
+                "total_margin": self.current_position.get_total_margin(),
+                "unrealized_pnl": self.current_position.get_total_unrealized_pnl(),
+                "realized_pnl": self.current_position.get_total_realized_pnl(),
+                "long_positions": len(self.current_position.long_positions),
+                "short_positions": len(self.current_position.short_positions),
+                "available_cash": self.current_position.get_available_cash(),
+            })
+            
+        return summary
 
     def get_portfolio_metrics(self) -> Tuple[pd.DataFrame, dict]:
         """get the history portfolio_metrics and positions instance"""

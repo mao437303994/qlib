@@ -368,9 +368,9 @@ class Exchange:
             buy_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_buy", method="all")
             sell_limit = self.quote.get_data(stock_id, start_time, end_time, field="limit_sell", method="all")
             return bool(buy_limit or sell_limit)
-        elif direction == Order.BUY:
+        elif direction in [OrderDir.BUY, OrderDir.BUY_LONG, OrderDir.BUY_SHORT]:
             return cast(bool, self.quote.get_data(stock_id, start_time, end_time, field="limit_buy", method="all"))
-        elif direction == Order.SELL:
+        elif direction in [OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.SELL_SHORT]:
             return cast(bool, self.quote.get_data(stock_id, start_time, end_time, field="limit_sell", method="all"))
         else:
             raise ValueError(f"direction {direction} is not supported!")
@@ -499,9 +499,9 @@ class Exchange:
         direction: OrderDir,
         method: Optional[str] = "ts_data_last",
     ) -> Union[None, int, float, bool, IndexData]:
-        if direction == OrderDir.SELL:
+        if direction in [OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.SELL_SHORT]:
             pstr = self.sell_price
-        elif direction == OrderDir.BUY:
+        elif direction in [OrderDir.BUY, OrderDir.BUY_LONG, OrderDir.BUY_SHORT]:
             pstr = self.buy_price
         else:
             raise NotImplementedError(f"This type of input is not supported")
@@ -655,7 +655,7 @@ class Exchange:
                     Order(
                         stock_id=stock_id,
                         amount=deal_amount,
-                        direction=Order.BUY,
+                        direction=OrderDir.BUY,
                         start_time=start_time,
                         end_time=end_time,
                         factor=factor,
@@ -667,7 +667,7 @@ class Exchange:
                     Order(
                         stock_id=stock_id,
                         amount=abs(deal_amount),
-                        direction=Order.SELL,
+                        direction=OrderDir.SELL,
                         start_time=start_time,
                         end_time=end_time,
                         factor=factor,
@@ -795,7 +795,7 @@ class Exchange:
         dealt_order_amount : dict
             :param dealt_order_amount: the dealt order amount dict with the format of {stock_id: float}
         """
-        vol_limit = self.buy_vol_limit if order.direction == Order.BUY else self.sell_vol_limit
+        vol_limit = self.buy_vol_limit if order.direction in [OrderDir.BUY, OrderDir.BUY_LONG, OrderDir.BUY_SHORT] else self.sell_vol_limit
 
         if vol_limit is None:
             return order.deal_amount
@@ -891,7 +891,7 @@ class Exchange:
         else:
             adj_cost_ratio = self.impact_cost * (trade_val / total_trade_val) ** 2
 
-        if order.direction == Order.SELL:
+        if order.direction in [OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.SELL_SHORT]:
             cost_ratio = self.close_cost + adj_cost_ratio
             # sell
             # if we don't know current position, we choose to sell all
@@ -915,7 +915,7 @@ class Exchange:
                     order.deal_amount = 0
                     self.logger.debug(f"Order clipped due to cash limitation: {order}")
 
-        elif order.direction == Order.BUY:
+        elif order.direction in [OrderDir.BUY, OrderDir.BUY_LONG, OrderDir.BUY_SHORT]:
             cost_ratio = self.open_cost + adj_cost_ratio
             # buy
             if position is not None:

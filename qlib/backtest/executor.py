@@ -14,7 +14,7 @@ from qlib.log import get_module_logger
 
 from ..strategy.base import BaseStrategy
 from ..utils import init_instance_by_config
-from .decision import BaseTradeDecision, Order
+from .decision import BaseTradeDecision, Order, OrderDir
 from .exchange import Exchange
 from .utils import CommonInfrastructure, LevelInfrastructure, TradeCalendarManager, get_start_end_idx
 
@@ -580,9 +580,18 @@ class SimulatorExecutor(BaseExecutor):
             # NOTE: !!!!!!!
             # Assumption: there will not be orders in different trading direction in a single step of a strategy !!!!
             # The parallel trading failure will be caused only by the conflicts of money
-            # Therefore, make the buying go first will make sure the conflicts happen.
-            # It equals to parallel trading after sorting the order by direction
-            order_it = sorted(orders, key=lambda order: -order.direction)
+            # Therefore, make the selling/closing positions go first to release money, then buying/opening positions
+            # Closing operations: SELL(0), SELL_LONG(2), BUY_SHORT(3)
+            # Opening operations: BUY(1), BUY_LONG(10), SELL_SHORT(11)
+            def get_order_priority(order):
+                """Get order priority for sorting. Lower value = higher priority"""
+                direction = order.direction
+                if direction in (OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.BUY_SHORT):
+                    return 0  # 平仓操作优先
+                else:
+                    return 1  # 开仓操作
+            
+            order_it = sorted(orders, key=get_order_priority)
         else:
             raise NotImplementedError(f"This type of input is not supported")
         return order_it
@@ -611,11 +620,19 @@ class SimulatorExecutor(BaseExecutor):
             self.dealt_order_amount[order.stock_id] += order.deal_amount
 
             if self.verbose:
+                # Determine action text based on direction
+                # Closing operations: SELL(0), SELL_LONG(2), BUY_SHORT(3) -> "sell"
+                # Opening operations: BUY(1), BUY_LONG(10), SELL_SHORT(11) -> "buy"
+                if order.direction in (OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.BUY_SHORT):
+                    action_text = "sell"
+                else:
+                    action_text = "buy"
+                
                 print(
                     "[I {:%Y-%m-%d %H:%M:%S}]: {} {}, price {:.2f}, amount {}, deal_amount {}, factor {}, "
                     "value {:.2f}, cash {:.2f}.".format(
                         trade_start_time,
-                        "sell" if order.direction == Order.SELL else "buy",
+                        action_text,
                         order.stock_id,
                         trade_price,
                         order.amount,
