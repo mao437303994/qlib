@@ -5,6 +5,12 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union, cast
 
+from qlib.utils.mod import init_instance_by_config
+
+
+
+from ..typehint import InstConf
+
 from ..utils.index_data import IndexData
 
 if TYPE_CHECKING:
@@ -23,7 +29,7 @@ from ..data.data import D
 from ..log import get_module_logger
 from .decision import Order, OrderDir, OrderHelper
 from .high_performance_ds import BaseQuote, NumpyQuote
-
+from .cos import Cost, CostD
 
 class Exchange:
     # `quote_df` is a pd.DataFrame class that contains basic information for backtesting
@@ -45,7 +51,7 @@ class Exchange:
         subscribe_fields: list = [],
         limit_threshold: Union[Tuple[str, str], float, None] = None,
         volume_threshold: Union[tuple, dict, None] = None,
-        open_cost: float = 0.0015,
+        open_cost: Union[float, InstConf] = 0.0015,
         close_cost: float = 0.0025,
         min_cost: float = 5.0,
         impact_cost: float = 0.0,
@@ -162,6 +168,14 @@ class Exchange:
             self.buy_price, self.sell_price = cast(Tuple[str, str], deal_price)
         else:
             raise NotImplementedError(f"This type of input is not supported")
+        
+        if isinstance(open_cost, float):
+            open_cost = Cost(name="open_cost",cost=open_cost)
+        else:
+            open_cost = cast(Cost, init_instance_by_config(
+                config=open_cost,
+                accept_types=CostD,
+            ))
 
         if isinstance(codes, str):
             codes = D.instruments(codes)
@@ -180,7 +194,15 @@ class Exchange:
             assert isinstance(limit_threshold, tuple)
             for exp in limit_threshold:
                 necessary_fields.add(exp)
-        all_fields = list(necessary_fields | set(vol_lt_fields) | set(subscribe_fields))
+
+        open_cost_fields = open_cost.ex()
+
+        all_fields = list(
+            necessary_fields 
+            | set(vol_lt_fields) 
+            | set(subscribe_fields) 
+            | set(open_cost_fields)
+        )
 
         self.all_fields = all_fields
 
@@ -916,6 +938,7 @@ class Exchange:
                     self.logger.debug(f"Order clipped due to cash limitation: {order}")
 
         elif order.direction in [OrderDir.BUY, OrderDir.BUY_LONG, OrderDir.BUY_SHORT]:
+            self.open_cost.calc()
             cost_ratio = self.open_cost + adj_cost_ratio
             # buy
             if position is not None:
