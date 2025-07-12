@@ -94,6 +94,40 @@ class ChangeInstrument(ElemOperator):
         return self.feature.load(instrument, start_index, end_index, *args)
 
 
+class CONST(ExpressionOps):
+    """Constant Operator
+
+    Parameters
+    ----------
+    value : float
+        constant value
+
+    Returns
+    ----------
+    Expression
+        a feature instance with constant output
+    """
+
+    def __init__(self,name, value):
+        self.name = name
+        self.value = value
+        #self.f = Feature("close")
+
+    def __str__(self):
+        return "{}({},{})".format(type(self).__name__, self.name, self.value)
+
+    def _load_internal(self, instrument, start_index, end_index, *args):
+        return pd.Series(self.value, index=pd.RangeIndex(start_index, end_index+1))
+    
+    def get_longest_back_rolling(self):
+        # The constant value does not depend on the longest back rolling
+        return 0
+    
+    def get_extended_window_size(self):
+        # The constant value does not depend on the window size
+        return 0, 0
+
+
 class NpElemOperator(ElemOperator):
     """Numpy Element-wise Operator
 
@@ -1564,6 +1598,7 @@ class TResample(ElemOperator):
 
 TOpsList = [TResample]
 OpsList = [
+    CONST,
     ChangeInstrument,
     Rolling,
     Ref,

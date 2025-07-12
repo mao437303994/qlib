@@ -51,10 +51,10 @@ class Exchange:
         subscribe_fields: list = [],
         limit_threshold: Union[Tuple[str, str], float, None] = None,
         volume_threshold: Union[tuple, dict, None] = None,
-        open_cost: Union[float, InstConf] = None,
-        close_cost: Union[float, InstConf] = None,
-        min_cost: Union[float, InstConf] = None,
-        impact_cost: Union[float, InstConf] = None,
+        open_cost: Union[float, InstConf] =  0.0015,
+        close_cost: Union[float, InstConf] = 0.0025,
+        min_cost: Union[float, InstConf] = 5.0,
+        impact_cost: Union[float, InstConf] = 0.0,
         extra_quote: pd.DataFrame = None,
         quote_cls: Type[BaseQuote] = NumpyQuote,
         **kwargs: Any,
@@ -169,13 +169,51 @@ class Exchange:
         else:
             raise NotImplementedError(f"This type of input is not supported")
         
-        if isinstance(open_cost, float):
-            open_cost = Cost(name="open_cost",cost=open_cost)
+        
+        if isinstance(min_cost, (float, int)):
+            min_cost = Cost(
+                name="min_cost", 
+                cost_ratio=min_cost,
+            )
         else:
-            open_cost = cast(Cost, init_instance_by_config(
+            min_cost = cast(CostD, init_instance_by_config(
+                config=min_cost,
+                accept_types=CostD,
+            ))   
+        
+        if isinstance(impact_cost,  (float, int)):
+            impact_cost = Cost(
+                name="impact_cost",
+                cost_ratio=impact_cost,
+            )
+        else:
+            impact_cost = cast(CostD, init_instance_by_config(
+                config=impact_cost,
+                accept_types=CostD,
+            ))
+
+        if isinstance(open_cost,  (float, int)):
+            open_cost = Cost(
+                name="open_cost",
+                cost_ratio=open_cost,
+            )
+        else:
+            open_cost = cast(CostD, init_instance_by_config(
                 config=open_cost,
                 accept_types=CostD,
             ))
+        
+        if isinstance(close_cost,  (float, int)):
+            close_cost = Cost(
+                name="close_cost",
+                cost_ratio=close_cost,
+            )
+        else:
+            close_cost = cast(CostD, init_instance_by_config(
+                config=close_cost,
+                accept_types=CostD,
+            ))
+
 
         if isinstance(codes, str):
             codes = D.instruments(codes)
@@ -196,12 +234,18 @@ class Exchange:
                 necessary_fields.add(exp)
 
         open_cost_fields = open_cost.ex()
+        close_cost_fields = close_cost.ex()
+        min_cost_fields = min_cost.ex()
+        impact_cost_fields = impact_cost.ex() 
 
         all_fields = list(
             necessary_fields 
             | set(vol_lt_fields) 
             | set(subscribe_fields) 
             | set(open_cost_fields)
+            | set(close_cost_fields)
+            | set(min_cost_fields)
+            | set(impact_cost_fields)
         )
 
         self.all_fields = all_fields
@@ -853,7 +897,7 @@ class Exchange:
 
         return None
 
-    def _get_buy_amount_by_cash_limit(self, trade_price: float, cash: float, cost_ratio: float) -> float:
+    def _get_buy_amount_by_cash_limit(self, order: Order, trade_price: float, cash: float, cost_ratio: float) -> float:
         """return the real order amount after cash limit for buying.
         Parameters
         ----------
@@ -866,16 +910,18 @@ class Exchange:
         float
             the real order amount after cash limit for buying.
         """
+        min_cost = cast(float, self.get_quote_info(order.stock_id, order.start_time, order.end_time, field=self.min_cost.field))
+
         max_trade_amount = 0.0
-        if cash >= self.min_cost:
+        if cash >= min_cost:
             # critical_price means the stock transaction price when the service fee is equal to min_cost.
-            critical_price = self.min_cost / cost_ratio + self.min_cost
+            critical_price = min_cost / cost_ratio + min_cost
             if cash >= critical_price:
                 # the service fee is equal to cost_ratio * trade_amount
                 max_trade_amount = cash / (1 + cost_ratio) / trade_price
             else:
                 # the service fee is equal to min_cost
-                max_trade_amount = (cash - self.min_cost) / trade_price
+                max_trade_amount = (cash - min_cost) / trade_price
         return max_trade_amount
 
     def _calc_trade_info_by_order(
@@ -905,16 +951,22 @@ class Exchange:
         # - It simulates that the large order is submitted, but partial is dealt regardless of rounding by trading unit.
         self._clip_amount_by_volume(order, dealt_order_amount)
 
+        # calculate the cost ratio
+        impact_cost = cast(float, self.get_quote_info(order.stock_id, order.start_time, order.end_time, field=self.impact_cost.field))
+        close_cost = cast(float, self.get_quote_info(order.stock_id, order.start_time, order.end_time, field=self.close_cost.field))
+        open_cost = cast(float, self.get_quote_info(order.stock_id, order.start_time, order.end_time, field=self.open_cost.field))
+        min_cost = cast(float, self.get_quote_info(order.stock_id, order.start_time, order.end_time, field=self.min_cost.field))
+
         # TODO: the adjusted cost ratio can be overestimated as deal_amount will be clipped in the next steps
         trade_val = order.deal_amount * trade_price
         if not total_trade_val or np.isnan(total_trade_val):
             # TODO: assert trade_val == 0, f"trade_val != 0, total_trade_val: {total_trade_val}; order info: {order}"
-            adj_cost_ratio = self.impact_cost
+            adj_cost_ratio = impact_cost
         else:
-            adj_cost_ratio = self.impact_cost * (trade_val / total_trade_val) ** 2
+            adj_cost_ratio = impact_cost * (trade_val / total_trade_val) ** 2
 
         if order.direction in [OrderDir.SELL, OrderDir.SELL_LONG, OrderDir.SELL_SHORT]:
-            cost_ratio = self.close_cost + adj_cost_ratio
+            cost_ratio = close_cost + adj_cost_ratio
             # sell
             # if we don't know current position, we choose to sell all
             # Otherwise, we clip the amount based on current position
@@ -932,23 +984,22 @@ class Exchange:
                 # in case of negative value of cash
                 if position.get_cash() + order.deal_amount * trade_price < max(
                     order.deal_amount * trade_price * cost_ratio,
-                    self.min_cost,
+                    min_cost,
                 ):
                     order.deal_amount = 0
                     self.logger.debug(f"Order clipped due to cash limitation: {order}")
 
         elif order.direction in [OrderDir.BUY, OrderDir.BUY_LONG, OrderDir.BUY_SHORT]:
-            self.open_cost.calc()
-            cost_ratio = self.open_cost + adj_cost_ratio
+            cost_ratio = open_cost + adj_cost_ratio
             # buy
             if position is not None:
                 cash = position.get_cash()
                 trade_val = order.deal_amount * trade_price
-                if cash < max(trade_val * cost_ratio, self.min_cost):
+                if cash < max(trade_val * cost_ratio, min_cost):
                     # cash cannot cover cost
                     order.deal_amount = 0
                     self.logger.debug(f"Order clipped due to cost higher than cash: {order}")
-                elif cash < trade_val + max(trade_val * cost_ratio, self.min_cost):
+                elif cash < trade_val + max(trade_val * cost_ratio, min_cost):
                     # The money is not enough
                     max_buy_amount = self._get_buy_amount_by_cash_limit(trade_price, cash, cost_ratio)
                     order.deal_amount = self.round_amount_by_trade_unit(
@@ -967,7 +1018,7 @@ class Exchange:
             raise NotImplementedError("order direction {} error".format(order.direction))
 
         trade_val = order.deal_amount * trade_price
-        trade_cost = max(trade_val * cost_ratio, self.min_cost)
+        trade_cost = max(trade_val * cost_ratio, min_cost)
         if trade_val <= 1e-5:
             # if dealing is not successful, the trade_cost should be zero.
             trade_cost = 0

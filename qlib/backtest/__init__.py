@@ -182,7 +182,7 @@ def get_strategy_executor(
     benchmark: Optional[str] = "SH000300",
     account: Union[float, int, dict] = 1e9,
     exchange_kwargs: dict = {},
-    pos_type: str = "Position",
+    pos_type: str = "LeveragedPosition",
 ) -> Tuple[BaseStrategy, BaseExecutor]:
     # NOTE:
     # - for avoiding recursive import
